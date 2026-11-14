@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="صفحه معرفی کتابخانه شهدای محمودآباد و بازیکده جهش؛ کتاب، بازی، سینما و رویدادهای فرهنگی.">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; connect-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://developer.eitaa.com 'sha256-NZ6/RRHl8JkFRATscyGqXaw9WIoztIr5+ONSayVBC04='; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; connect-src 'none'">
+  <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
   <meta name="theme-color" content="#102e35">
   <title>جهش | کتابخانه شهدای محمودآباد</title>
   <style>
@@ -53,6 +54,13 @@
         <p>به صفحه معرفی کتابخانه شهدای محمودآباد و بازیکده جهش خوش آمدید. خبرهای مرکز، برنامه‌های فرهنگی و شرایط شرکت در رویدادها را از کانال رسمی دنبال کنید.</p>
         <div class="actions"><a class="button" href="https://eitaa.com/ketabct" rel="noreferrer">کانال مرکز در ایتا</a><a class="button secondary" href="#services">آشنایی با خدمات</a></div>
       </div>
+      <section class="card" id="connect" aria-labelledby="connect-title">
+        <h2 id="connect-title">اتصال به جهش</h2>
+        <p>برای آزمون پیام، این صفحه را از دکمه «خدمات مرکز» داخل برنامک ایتا باز کنید. اطلاعات اتصال فقط روی دستگاه شما آماده می‌شود؛ آن را در بخش اتصال برنامک در جهش وارد کنید، نه در گفت‌وگو یا کانال عمومی. اعتبار اطلاعات ۱۰ دقیقه است.</p>
+        <button type="button" class="button" id="prepare-connection">آماده‌سازی اتصال به جهش</button>
+        <p id="connection-status" role="status" aria-live="polite"></p>
+        <textarea id="connection-data" aria-label="اطلاعات امضاشده اتصال؛ فقط در جهش وارد کنید" readonly hidden dir="ltr" style="width:100%;min-height:110px"></textarea>
+      </section>
       <section id="services" aria-labelledby="services-title">
         <h2 id="services-title">هر بار، یک تجربه تازه</h2><p class="intro">برای شرایط استفاده، تعرفه‌ها و زمان برنامه‌ها با مسئول مرکز هماهنگ کنید.</p>
         <div class="grid">
@@ -67,10 +75,41 @@
       </section>
       <section id="privacy" class="privacy" aria-labelledby="privacy-title">
         <h2 id="privacy-title">درباره این صفحه و اطلاعات شما</h2>
-        <p>این صفحه فقط برای معرفی و اطلاع‌رسانی است؛ فرم ورود، دریافت کد ملی، شماره همراه، رمز یا رسید پرداخت ندارد و به بانک اطلاعات اعضا متصل نیست. ورود به کانال ایتا شما را خودکار عضو سامانه نمی‌کند و اجازه ارسال پیام خصوصی ثبت نمی‌کند. برای امور عضویت، امانت و رزرو با مسئول مرکز هماهنگ کنید.</p>
+        <p>این صفحه رمز، توکن برنامه، کد ملی، شماره همراه یا رسید پرداخت نمی‌گیرد و به بانک اعضا متصل نیست. با انتخاب آماده‌سازی اتصال، داده امضاشده حساب ایتای شما برای انتقال دستی به جهش نمایش داده می‌شود؛ خودکار به سرور یا شخص دیگری ارسال نمی‌شود. اجازه پیام با پنجره رسمی ایتا درخواست می‌شود. عضویت در کانال به‌تنهایی به معنی ثبت پرونده نیست.</p>
       </section>
     </main>
     <footer>کتابخانه شهدای محمودآباد و بازیکده جهش · صفحه عمومی معرفی مرکز</footer>
   </div>
+<script>
+"use strict";
+const connectionButton = document.getElementById("prepare-connection");
+const connectionStatus = document.getElementById("connection-status");
+const connectionData = document.getElementById("connection-data");
+connectionButton.addEventListener("click", () => {
+  const app = window.Eitaa && window.Eitaa.WebApp;
+  connectionData.value = "";
+  connectionData.hidden = true;
+  if (!app || !app.initData) {
+    connectionStatus.textContent = "این صفحه را از داخل برنامک ایتا، دکمه خدمات مرکز باز کنید؛ مرورگر معمولی شناسه معتبر نمی‌دهد.";
+    return;
+  }
+  const showConnection = () => {
+    connectionData.value = app.initData;
+    connectionData.hidden = false;
+    connectionData.focus();
+    connectionData.select();
+    connectionStatus.textContent = "متن انتخاب‌شده را کپی و فقط در تنظیمات برنامک جهش وارد کنید. هیچ پیامی هنوز ارسال نشده است.";
+  };
+  if (app.initDataUnsafe && app.initDataUnsafe.user && app.initDataUnsafe.user.allows_write_to_pm === true) {
+    showConnection();
+  } else if (typeof app.requestWriteAccess === "function") {
+    app.requestWriteAccess(allowed => {
+      connectionStatus.textContent = allowed ? "مجوز داده شد. برنامک را ببندید و دوباره باز کنید تا مجوز در اطلاعات امضاشده ثبت شود؛ سپس آماده‌سازی اتصال را بزنید." : "مجوز ارسال داده نشد؛ هیچ پیامی ارسال نمی‌شود.";
+    });
+  } else {
+    connectionStatus.textContent = "این نسخه ایتا از درخواست مجوز پشتیبانی نمی‌کند؛ ایتا را به‌روز کنید.";
+  }
+});
+</script>
 </body>
 </html>
