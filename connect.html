@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://developer.eitaa.com; connect-src https://raw.githubusercontent.com https://*.app.lhr.life; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>جهش — اتصال خدمات مرکز</title>
+  <script src="https://developer.eitaa.com/eitaa-web-app.js" defer></script>
+  <script src="./connect.js" defer></script>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f5f4ee;color:#103e42;font:16px/2 Tahoma,sans-serif;padding:24px}main{max-width:560px;margin:5vh auto;background:white;padding:28px;border-radius:24px;box-shadow:0 16px 48px #103e4212}h1{font-size:25px}button{font:700 16px Tahoma;cursor:pointer;width:100%;min-height:56px;background:#116858;color:white;border:0;border-radius:14px;padding:14px}button:disabled{opacity:.55;cursor:wait}#status{min-height:64px}small{display:block;color:#637373;margin-top:18px}
+  </style>
+</head>
+<body><main>
+  <h1>اتصال به خدمات جهش</h1>
+  <p>این صفحه را از داخل برنامک ایتا باز کنید. نیازی به واردکردن کلید، شناسه یا کپی‌کردن متن نیست.</p>
+  <p>با انتخاب دکمه، یک پیام با متن «این پیام آزمایشی سامانه جهش برای بررسی اتصال است؛ نیازی به پاسخ نیست.» درخواست می‌کنید.</p>
+  <button id="connect" type="button" data-gateway-manifest="true">اتصال و دریافت پیام آزمایشی</button>
+  <p id="status" role="status" aria-live="polite"></p>
+  <small>نشانی این صفحه ثابت می‌ماند. اگر سرور مرکز یا مسیر ارتباط آن آماده نباشد، اطلاعات حساب ارسال نمی‌شود. این مرحله فقط آزمایش پیام است؛ ثبت پرونده و رزرو را فعال نمی‌کند.</small>
+</main></body></html>
