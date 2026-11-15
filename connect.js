@@ -4,7 +4,7 @@ const connectStatus = document.getElementById("status");
 let refreshWritePermission = false;
 async function connectionEndpoint() {
   if (!connectButton.dataset?.gatewayManifest) return "/connect";
-  let manifest;
+  let invalidManifest = false;
   const sources = [
     "https://api.github.com/repos/yunussaba-pixel/ketabct/contents/gateway.json?ref=gateway-state&fresh=",
     "https://raw.githubusercontent.com/yunussaba-pixel/ketabct/gateway-state/gateway.json?fresh="
@@ -17,22 +17,25 @@ async function connectionEndpoint() {
         ...(typeof AbortSignal !== "undefined" && AbortSignal.timeout ? {signal: AbortSignal.timeout(10000)} : {})
       });
       if (!response.ok) throw new Error("gateway discovery unavailable");
-      manifest = await response.json();
-      break;
+      const manifest = await response.json();
+      const now = Date.now() / 1000;
+      if (!manifest || manifest.version !== 1 || manifest.status !== "ready" ||
+          !Number.isInteger(manifest.generated_at) || !Number.isInteger(manifest.expires_at) ||
+          manifest.generated_at > now + 30 || manifest.expires_at <= now ||
+          manifest.expires_at <= manifest.generated_at || manifest.expires_at - manifest.generated_at > 600 ||
+          typeof manifest.origin !== "string" ||
+          !/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life$/.test(manifest.origin)) {
+        invalidManifest = true;
+        continue;
+      }
+      return manifest.origin + "/connect";
     } catch {
-      if (source === sources[sources.length - 1]) throw new Error("gateway discovery unavailable");
+      continue;
     }
   }
-  const now = Date.now() / 1000;
-  if (!manifest || manifest.version !== 1 || manifest.status !== "ready" ||
-      !Number.isInteger(manifest.generated_at) || !Number.isInteger(manifest.expires_at) ||
-      manifest.generated_at > now + 30 || manifest.expires_at <= now ||
-      manifest.expires_at <= manifest.generated_at || manifest.expires_at - manifest.generated_at > 600 ||
-      typeof manifest.origin !== "string" ||
-      !/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life$/.test(manifest.origin)) {
-    throw new Error("gateway expired or invalid");
-  }
-  return manifest.origin + "/connect";
+  throw new Error(invalidManifest
+    ? "نشانی سرور مرکز منقضی یا غیرفعال است؛ اپراتور باید درگاه، تونل و انتشار نشانی را راه‌اندازی کند. اطلاعات شما ارسال نشد."
+    : "نشانی سرور مرکز دریافت نشد؛ ارتباط اینترنت یا سرویس انتشار نشانی را بررسی کنید. اطلاعات شما ارسال نشد.");
 }
 connectButton.addEventListener("click", async () => {
   if (connectButton.disabled) return;
