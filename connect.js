@@ -3,14 +3,27 @@ const connectButton = document.getElementById("connect");
 const connectStatus = document.getElementById("status");
 async function connectionEndpoint() {
   if (!connectButton.dataset?.gatewayManifest) return "/connect";
-  const response = await fetch("https://raw.githubusercontent.com/yunussaba-pixel/ketabct/gateway-state/gateway.json?fresh=" + Date.now(), {
-    credentials: "omit", cache: "no-store", redirect: "error",
-    ...(typeof AbortSignal !== "undefined" && AbortSignal.timeout ? {signal: AbortSignal.timeout(10000)} : {})
-  });
-  if (!response.ok) throw new Error("gateway unavailable");
-  const manifest = await response.json();
+  let manifest;
+  const sources = [
+    "https://api.github.com/repos/yunussaba-pixel/ketabct/contents/gateway.json?ref=gateway-state&fresh=",
+    "https://raw.githubusercontent.com/yunussaba-pixel/ketabct/gateway-state/gateway.json?fresh="
+  ];
+  for (const source of sources) {
+    try {
+      const response = await fetch(source + Date.now(), {
+        credentials: "omit", cache: "no-store", redirect: "error",
+        headers: {Accept: "application/vnd.github.raw+json"},
+        ...(typeof AbortSignal !== "undefined" && AbortSignal.timeout ? {signal: AbortSignal.timeout(10000)} : {})
+      });
+      if (!response.ok) throw new Error("gateway discovery unavailable");
+      manifest = await response.json();
+      break;
+    } catch {
+      if (source === sources[sources.length - 1]) throw new Error("gateway discovery unavailable");
+    }
+  }
   const now = Date.now() / 1000;
-  if (manifest.version !== 1 || manifest.status !== "ready" ||
+  if (!manifest || manifest.version !== 1 || manifest.status !== "ready" ||
       !Number.isInteger(manifest.generated_at) || !Number.isInteger(manifest.expires_at) ||
       manifest.generated_at > now + 30 || manifest.expires_at <= now ||
       manifest.expires_at <= manifest.generated_at || manifest.expires_at - manifest.generated_at > 600 ||
