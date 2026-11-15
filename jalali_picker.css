@@ -1,0 +1,23 @@
+.jalali-picker{position:relative;display:flex;align-items:center;gap:6px;min-width:0;font-weight:normal;margin-top:5px}
+.jalali-picker .jalali-toggle{display:block;flex:1;min-width:0;min-height:44px;padding:8px 10px;text-align:right;font:inherit;white-space:normal;border:1px solid var(--line,#bac7cf);border-radius:10px;background:var(--surface,#fff);color:var(--text,#18242e)}
+.calendar-language{font:inherit;font-size:11px;min-height:44px;padding:6px 9px;background:transparent;color:var(--muted,#526675);border:1px solid var(--line,#bac7cf);border-radius:10px}
+.calendar-canonical:not(.calendar-native-visible){position:absolute!important;width:1px!important;height:1px!important;margin:0!important;padding:0!important;border:0!important;clip-path:inset(50%);overflow:hidden;opacity:0;pointer-events:none}
+.calendar-summary{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
+.jalali-picker-panel{position:absolute;top:calc(100% + 6px);right:0;width:min(352px,calc(100vw - 40px));max-height:75vh;overflow:auto;box-sizing:border-box;padding:12px;border:1px solid var(--line,#667);border-radius:16px;background:var(--surface,#fff);color:var(--text,#18242e);box-shadow:0 12px 36px #0003;z-index:110}
+.jalali-picker-panel[hidden],.jalali-picker-panel [hidden]{display:none!important}
+.jalali-picker-panel input{direction:ltr;text-align:center;margin-bottom:6px;width:100%;box-sizing:border-box;min-height:44px}
+.jalali-month-controls{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:8px 0}
+.jalali-month-selectors{display:flex;gap:5px;min-width:0}.jalali-month-selectors select{min-width:0;width:auto;min-height:44px;padding:4px;font:inherit}
+.jalali-month-controls button,.jalali-picker-panel .toolbar button{font:inherit;min-height:44px;padding:6px 10px}
+.jalali-day-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;text-align:center;direction:rtl}
+.jalali-day-grid button{min-height:42px;padding:2px;font:inherit;border-radius:8px;background:var(--bg,#f0f4f6);color:var(--text,#18242e);border:1px solid transparent}
+.jalali-day-grid button:hover{border-color:var(--accent,#23715b)}.jalali-day-grid button:disabled{opacity:.35;cursor:not-allowed}
+.jalali-day-grid button[aria-pressed="true"]{background:var(--accent,#23715b);color:var(--calendar-selection-ink,white);font-weight:bold}
+body[data-workspace='gamenet']{--calendar-selection-ink:var(--bg)}
+.jalali-month-controls button,.jalali-picker-panel .toolbar button{background:var(--soft,#e8f2ec);color:var(--text,#18242e);border:1px solid var(--line,#bac7cf);border-radius:9px}
+.jalali-picker-panel .toolbar{display:flex;flex-wrap:wrap;gap:5px}.jalali-picker-panel p{margin:8px 0;line-height:1.8;font-weight:400}
+.calendar-clock{display:flex;gap:8px;direction:rtl;padding:8px 0}.calendar-clock label{flex:1;text-align:center;display:grid;gap:5px}.calendar-clock select{min-width:0;width:100%;font:inherit;min-height:44px;direction:ltr;text-align:center}
+.jalali-picker:focus-within{z-index:111}.jalali-picker button:focus-visible,.jalali-picker select:focus-visible{outline:2px solid var(--accent,#23715b);outline-offset:2px}
+@media(min-width:541px){.jalali-picker-panel.calendar-above{top:auto;bottom:calc(100% + 6px)}}
+@media(max-width:540px){.jalali-picker-panel{position:fixed;inset:auto 12px 12px;width:auto;max-height:76vh;z-index:1001}.jalali-day-grid button{min-height:44px}.jalali-picker:has(.jalali-picker-panel:not([hidden])){z-index:1001}}
+@media print{.jalali-picker-panel,.calendar-language{display:none!important}.jalali-picker .jalali-toggle{border:0;background:none;color:black;padding:0;min-height:0}}
