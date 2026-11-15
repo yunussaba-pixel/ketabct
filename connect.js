@@ -1,6 +1,7 @@
 "use strict";
 const connectButton = document.getElementById("connect");
 const connectStatus = document.getElementById("status");
+let refreshWritePermission = false;
 async function connectionEndpoint() {
   if (!connectButton.dataset?.gatewayManifest) return "/connect";
   let manifest;
@@ -44,7 +45,7 @@ connectButton.addEventListener("click", async () => {
   connectStatus.textContent = "در حال بررسی اتصال…";
   let submitted = false;
   try {
-    if (!app.initDataUnsafe?.user?.allows_write_to_pm) {
+    if (refreshWritePermission || !app.initDataUnsafe?.user?.allows_write_to_pm) {
       if (typeof app.requestWriteAccess !== "function") {
         connectStatus.textContent = "برای دریافت اجازه پیام، ایتا را به‌روز کنید.";
         connectButton.disabled = false;
@@ -67,6 +68,9 @@ connectButton.addEventListener("click", async () => {
     });
     const result = await response.json();
     if (!response.ok) {
+      if (typeof result.message === "string" && result.message.includes("EITAA_PERMISSION")) {
+        refreshWritePermission = true;
+      }
       connectStatus.textContent = result.message || "اتصال تکمیل نشد؛ با مسئول مرکز هماهنگ کنید.";
       connectButton.disabled = false;
       return;
