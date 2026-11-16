@@ -19,6 +19,16 @@
   const form=node("form"),status=node("status");
   const labels={gamenet:"بازیکده",cafe:"کافه",cinema:"سینما"};
   const number=value=>new Intl.NumberFormat("fa-IR").format(value);
+  const registration=document.createElement("form");
+  registration.className="reservation-panel";
+  registration.innerHTML=`<h2>اولین رزرو سینما؟ مشخصات خودت را ثبت کن</h2><p>یک نفر می‌تواند برای همراهانش هم بلیت بگیرد. این ثبت‌نام فقط دسترسی سینما می‌دهد؛ تأیید واریز با مسئول مرکز است.</p>
+    <label>نام<input name="first_name" autocomplete="given-name" maxlength="80" required></label>
+    <label>نام خانوادگی<input name="last_name" autocomplete="family-name" maxlength="80" required></label>
+    <label>نام پدر<input name="father_name" maxlength="100" required></label>
+    <label>شماره همراه<input name="phone" type="tel" inputmode="numeric" maxlength="11" required></label>
+    <label><input name="consent" type="checkbox" required> ذخیره مشخصات برای رزرو و بررسی رسید توسط مرکز را می‌پذیرم. شماره همراه هنوز تأیید پیامکی نمی‌شود.</label>
+    <button type="submit" class="primary">ثبت‌نام و ادامه رزرو سینما</button>`;
+  container.insertBefore(registration,container.querySelector(".reservation-panel"));
   let catalog=null,busy=false,pending=null;
   const selectedSeats=new Set();
   const query=typeof URLSearchParams!=="undefined"?new URLSearchParams(window.location?.search||""):null;
@@ -146,6 +156,17 @@
     if(busy)return;busy=true;sync();
     try{catalog=await call("catalog");form.hidden=false;selectResources();await refresh();message("خدمات و رزروها به‌روز شدند. مبلغ قطعی درخواست از مرکز محاسبه می‌شود.");}
     catch(error){message(error.message);}finally{busy=false;sync();}
+  };
+  registration.onsubmit=async event=>{
+    event.preventDefault();if(busy)return;
+    const values=new FormData(registration),button=registration.querySelector("button");
+    busy=true;button.disabled=true;sync();
+    try{
+      await call("register",{registration:{first_name:values.get("first_name"),last_name:values.get("last_name"),father_name:values.get("father_name"),phone:values.get("phone"),consent:values.get("consent")==="on"}});
+      registration.hidden=true;node("kind").value="cinema";
+      catalog=await call("catalog");form.hidden=false;selectResources();await refresh();
+      message("ثبت‌نام سینما انجام شد؛ سانس و صندلی‌ها را انتخاب کن. ثبت رسید به‌تنهایی تأیید واریز نیست.");
+    }catch(error){message(error.message);}finally{busy=false;button.disabled=false;sync();}
   };
   node("reconcile").onclick=async()=>{
     if(!pending||busy)return;busy=true;sync();
