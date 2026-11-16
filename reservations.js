@@ -9,6 +9,7 @@
       <label>دستگاه، میز یا سانس<select id="reservation-resource" required></select></label>
       <div id="reservation-window" class="reservation-grid"><label>روز (شمسی)<input id="reservation-date" type="date" required></label><label>ساعت محلی مرکز<input id="reservation-time" type="time" required></label><label>مدت (دقیقه)<input id="reservation-minutes" type="number" required min="1" max="1440" value="60"></label></div>
       <label id="reservation-quantity-label">تعداد مهمان یا بلیت<input id="reservation-quantity" type="number" min="1" max="100" value="1" required></label>
+      <fieldset id="reservation-seating" hidden><legend>صندلی‌های آزاد را انتخاب کن</legend><div id="reservation-seats" class="reservation-seats"></div><p id="reservation-seat-summary" aria-live="polite"></p></fieldset>
       <p id="reservation-estimate" class="notice"></p><label><input id="reservation-consent" type="checkbox" required> زمان، خدمت و مبلغ برآوردی را بررسی کردم. ثبت این فرم به‌تنهایی تأیید نهایی نیست.</label>
       <button type="submit" class="primary">ثبت رزرو برای تأیید</button></form>
       <button id="reservation-reconcile" class="secondary" type="button" hidden>بررسی نتیجه عملیات قبلی</button>
@@ -19,6 +20,9 @@
   const labels={gamenet:"بازیکده",cafe:"کافه",cinema:"سینما"};
   const number=value=>new Intl.NumberFormat("fa-IR").format(value);
   let catalog=null,busy=false,pending=null;
+  const selectedSeats=new Set();
+  const query=typeof URLSearchParams!=="undefined"?new URLSearchParams(window.location?.search||""):null;
+  if(query?.get("section")==="cinema")node("kind").value="cinema";
   const message=text=>{status.textContent=text;};
   const identity=()=>{
     const raw=window.Eitaa?.WebApp?.initData;
@@ -42,7 +46,7 @@
   const date=value=>new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeStyle:"short",timeZone:catalog?.timezone||"Asia/Tehran"}).format(new Date(value));
   const resource=()=>catalog?.resources.find(row=>row.kind===node("kind").value&&String(row.id)===node("resource").value);
   const sync=()=>{
-    form.querySelectorAll("input,select,button").forEach(control=>{control.disabled=busy||Boolean(pending);});
+    form.querySelectorAll("input,select,button").forEach(control=>{control.disabled=busy||Boolean(pending)||control.dataset.seatUnavailable==="true";});
     node("load").disabled=busy;
     node("reconcile").hidden=!pending;node("retry").hidden=!pending;
     node("reconcile").disabled=busy;node("retry").disabled=busy;
@@ -52,6 +56,7 @@
     const row=resource();node("consent").checked=false;
     if(!row){node("estimate").textContent="گزینه‌ای برای این بخش عرضه نشده است؛ با مرکز تماس بگیر.";return;}
     const kind=node("kind").value,timed=kind!=="cinema";
+    node("seat-summary").textContent="انتخاب شده: "+number(selectedSeats.size)+" از "+number(node("quantity").value)+" صندلی";
     node("window").hidden=!timed;node("quantity-label").hidden=kind==="gamenet";
     for(const key of ["date","time","minutes"])node(key).required=timed;
     const min=row.min_minutes||catalog.settings.min_gamenet_minutes,max=row.max_minutes||catalog.settings.max_gamenet_minutes;
@@ -70,8 +75,21 @@
     const options=catalog.resources.filter(row=>row.kind===node("kind").value).map(row=>{
       const option=document.createElement("option");option.value=row.id;option.textContent=row.label+(row.starts_at?" · "+date(row.starts_at):"");return option;
     });
-    node("resource").replaceChildren(...options);estimate();
+    node("resource").replaceChildren(...options);
+    if(node("kind").value==="cinema"&&query?.get("show")&&options.some(option=>String(option.value)===query.get("show")))node("resource").value=query.get("show");
+    selectSeats();estimate();
     form.querySelector('[type="submit"]').hidden=!options.length;
+  };
+  const selectSeats=()=>{
+    selectedSeats.clear();
+    const row=resource();node("seating").hidden=row?.seat_mode!=="numbered";
+    node("seats").replaceChildren(...(row?.seats||[]).map(seat=>{
+      const label=document.createElement("label"),input=document.createElement("input"),caption=document.createElement("span");
+      input.type="checkbox";input.disabled=!seat.available;input.dataset.seatUnavailable=String(!seat.available);
+      caption.textContent=seat.code+(seat.available?"":" · اشغال");
+      input.addEventListener("change",()=>{if(input.checked)selectedSeats.add(seat.code);else selectedSeats.delete(seat.code);estimate();});
+      label.append(input,caption);return label;
+    }));
   };
   const text=(parent,tag,value)=>{const child=document.createElement(tag);child.textContent=value;parent.append(child);return child;};
   const render=items=>{
@@ -84,10 +102,12 @@
       const detail=item.details||{};
       text(card,"p",detail.device_name||detail.resource_name||detail.film_title||"");
       if(detail.starts_at)text(card,"p",date(detail.starts_at)+(detail.minutes?" · "+number(detail.minutes)+" دقیقه":""));
+      if(detail.seat_codes?.length)text(card,"p","صندلی‌ها: "+detail.seat_codes.join("، "));
       text(card,"p","مبلغ کل: "+number(item.estimate)+" · پرداخت لازم: "+number(item.amount)+" تومان");
+      if(item.payment_authorized===false)text(card,"p","پیش‌درخواست در انتظار بررسی اپراتور است؛ فعلاً پرداخت نکن. ظرفیت هنوز نگه داشته نشده است.");
       if(["awaiting_payment","awaiting_operator"].includes(item.status)){
         text(card,"p","مهلت بررسی: "+date(item.expires_at));
-        if(item.amount>0&&!item.receipts.some(row=>["pending","confirmed"].includes(row.status))){
+        if(item.payment_authorized!==false&&item.amount>0&&!item.receipts.some(row=>["pending","confirmed"].includes(row.status))){
           text(card,"p",item.card_number?"کارت مرکز: "+item.card_number+" · "+item.card_holder:"شماره کارت مرکز تنظیم نشده؛ قبل از پرداخت با مرکز تماس بگیر.");
           const receipt=document.createElement("form");
           receipt.innerHTML='<label>مبلغ واریزی (تومان)<input name="amount" type="number" required min="1" max="1000000000"></label><label>شماره پیگیری واریز<input name="reference" minlength="3" maxlength="60" required></label><label><input type="checkbox" required> واریز را انجام داده‌ام؛ تأیید دریافت با اپراتور است.</label><button type="submit" class="secondary" data-reservation-action>ثبت اطلاعات رسید</button>';
@@ -137,10 +157,15 @@
   };
   node("retry").onclick=()=>{if(pending&&!busy)execute();};
   node("kind").onchange=selectResources;
+  node("resource").addEventListener("change",selectSeats);
   for(const key of ["resource","date","time","minutes","quantity"])node(key).addEventListener("change",estimate);
   form.onsubmit=event=>{
     event.preventDefault();const row=resource();if(!row)return;
     const booking={request_key:crypto.randomUUID(),kind:row.kind,resource_id:row.id,quantity:row.kind==="gamenet"?1:Number(node("quantity").value)};
+    if(row.kind==="cinema"&&row.seat_mode==="numbered"){
+      if(selectedSeats.size!==booking.quantity){message("برای هر بلیت دقیقاً یک صندلی آزاد انتخاب کن.");return;}
+      booking.seat_codes=Array.from(selectedSeats);
+    }
     if(row.kind!=="cinema")Object.assign(booking,{local_date:node("date").value,local_time:node("time").value,minutes:Number(node("minutes").value)});
     write("book",{booking});
   };
