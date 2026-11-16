@@ -21,6 +21,7 @@
   const number=value=>new Intl.NumberFormat("fa-IR").format(value);
   const registration=document.createElement("form");
   registration.className="reservation-panel";
+  registration.hidden=true;
   registration.innerHTML=`<h2>اولین رزرو سینما؟ مشخصات خودت را ثبت کن</h2><p>یک نفر می‌تواند برای همراهانش هم بلیت بگیرد. این ثبت‌نام فقط دسترسی سینما می‌دهد؛ تأیید واریز با مسئول مرکز است.</p>
     <label>نام<input name="first_name" autocomplete="given-name" maxlength="80" required></label>
     <label>نام خانوادگی<input name="last_name" autocomplete="family-name" maxlength="80" required></label>
@@ -32,6 +33,7 @@
   let catalog=null,busy=false,pending=null;
   const selectedSeats=new Set();
   const query=typeof URLSearchParams!=="undefined"?new URLSearchParams(window.location?.search||""):null;
+  let selectedShowId=query?.get("show")||null;
   if(query?.get("section")==="cinema")node("kind").value="cinema";
   const message=text=>{status.textContent=text;};
   const identity=()=>{
@@ -50,7 +52,7 @@
     }catch{throw Object.assign(new Error("ارتباط قطع شد؛ نتیجه را بررسی کن. دوباره پرداخت نکن."),{unknown:true});}
     let data;
     try{data=await response.json();}catch{throw Object.assign(new Error("پاسخ مرکز قابل بررسی نیست؛ ابتدا استعلام بگیر."),{unknown:true});}
-    if(!response.ok)throw Object.assign(new Error(response.status===404?"رزرو واقعی هنوز روی درگاه مرکز فعال نشده است.":data.message||"درخواست پذیرفته نشد."),{unknown:response.status>=500});
+    if(!response.ok)throw Object.assign(new Error(response.status===404?"رزرو واقعی هنوز روی درگاه مرکز فعال نشده است.":data.message||"درخواست پذیرفته نشد."),{unknown:response.status>=500,status:response.status});
     return data;
   };
   const date=value=>new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeStyle:"short",timeZone:catalog?.timezone||"Asia/Tehran"}).format(new Date(value));
@@ -86,9 +88,9 @@
       const option=document.createElement("option");option.value=row.id;option.textContent=row.label+(row.starts_at?" · "+date(row.starts_at):"");return option;
     });
     node("resource").replaceChildren(...options);
-    if(node("kind").value==="cinema"&&query?.get("show")&&options.some(option=>String(option.value)===query.get("show")))node("resource").value=query.get("show");
+    if(node("kind").value==="cinema"&&selectedShowId)node("resource").value=options.some(option=>String(option.value)===String(selectedShowId))?String(selectedShowId):"";
     selectSeats();estimate();
-    form.querySelector('[type="submit"]').hidden=!options.length;
+    form.querySelector('[type="submit"]').hidden=!options.length||!resource();
   };
   const selectSeats=()=>{
     selectedSeats.clear();
@@ -155,8 +157,15 @@
   node("load").onclick=async()=>{
     if(busy)return;busy=true;sync();
     try{catalog=await call("catalog");form.hidden=false;selectResources();await refresh();message("خدمات و رزروها به‌روز شدند. مبلغ قطعی درخواست از مرکز محاسبه می‌شود.");}
-    catch(error){message(error.message);}finally{busy=false;sync();}
+    catch(error){if(error.status===403&&selectedShowId)registration.hidden=false;message(error.message);}finally{busy=false;sync();}
   };
+  document.addEventListener("jahesh-cinema-selected",event=>{
+    if(busy||pending){message("ابتدا نتیجه عملیات قبلی را بررسی کن.");return;}
+    selectedShowId=String(event.detail.show_id);node("kind").value="cinema";
+    registration.hidden=true;
+    registration.querySelector("h2").textContent="مشخصات خریدار برای «"+event.detail.title+"»";
+    node("load").onclick();
+  });
   registration.onsubmit=async event=>{
     event.preventDefault();if(busy)return;
     const values=new FormData(registration),button=registration.querySelector("button");
@@ -191,4 +200,5 @@
     write("book",{booking});
   };
   if(typeof jalaliPickerScan==="function")jalaliPickerScan(container);
+  if(selectedShowId)node("load").onclick();
 })();

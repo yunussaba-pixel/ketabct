@@ -33,6 +33,7 @@
     window.scrollTo({top: 0, behavior: "instant"});
   };
   const openService = (key, trigger) => {
+    if(key==="cinema"){showView("booking");return;}
     const service = services[key];
     if (!service) return;
     dialogTrigger = trigger;
@@ -73,6 +74,7 @@
     button.addEventListener("click", () => openService(button.dataset.service, button));
   });
   navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go)));
+  document.addEventListener("jahesh-cinema-selected",()=>showView("booking"));
   document.querySelector(".brand").addEventListener("click", event => {event.preventDefault(); showView("home");});
   document.getElementById("close-dialog").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => dialogTrigger?.focus());
