@@ -10,15 +10,15 @@
   <link rel="stylesheet" href="./services.css?v=1">
   <script src="https://developer.eitaa.com/eitaa-web-app.js" defer></script>
   <script src="./connect.js?v=3" defer></script>
-  <script src="./services.js?v=3-cinema-first" defer></script>
+  <script src="./services.js?v=5-booking-flow" defer></script>
   <script src="./requests.js?v=2" defer></script>
   <link rel="stylesheet" href="./jalali_picker.css?v=1">
   <link rel="stylesheet" href="./reservations.css?v=1">
   <script src="./calendar_core.js?v=1" defer></script>
   <script src="./jalali_picker.js?v=1" defer></script>
-  <script src="./reservations.js?v=4-cinema-first" defer></script>
-  <link rel="stylesheet" href="./seating.css?v=2">
-  <script src="./content.js?v=2-cinema-first" defer></script>
+  <script src="./reservations.js?v=6-booking-flow" defer></script>
+  <link rel="stylesheet" href="./seating.css?v=3">
+  <script src="./content.js?v=3-booking-flow" defer></script>
 </head>
 <body>
 <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -34,7 +34,7 @@
   <symbol id="message" viewBox="0 0 64 64"><path d="M11 10h42v34H27L12 55V10Zm10 13h22M21 33h15"/></symbol>
 </defs></svg>
 <div class="app-shell">
-  <header class="topbar"><a class="brand" href="#home" aria-label="خانه جهش"><span class="brand-mark">ج</span><span><strong>جهش</strong><small>کتابخانه شهدای محمودآباد</small></span></a><span class="release">پیش‌نمایش</span></header>
+  <header class="topbar"><a class="brand" href="#home" aria-label="خانه جهش"><span class="brand-mark">ج</span><span><strong>جهش</strong><small>کتابخانه شهدای محمودآباد</small></span></a><span class="release">خدمات مرکز</span></header>
   <main id="main" tabindex="-1">
     <section data-view="home" aria-labelledby="home-title">
       <div class="welcome"><span>یک مرکز؛ دنیایی تجربه</span><h1 id="home-title">امروز حالِ خوبت رو<br>از کجا شروع می‌کنی؟</h1><p>از کشف یک کتاب تا هیجان بازی و تماشای یک فیلم.</p></div>
@@ -47,7 +47,7 @@
         <button class="tile events" data-service="events"><svg aria-hidden="true"><use href="#calendar"/></svg><strong>رویدادها</strong><small>بهانه‌های خوب کنار هم بودن</small></button>
       </div>
       <a class="channel-card" href="https://eitaa.com/ketabct" target="_blank" rel="noopener noreferrer"><span class="channel-icon">↗</span><span><strong>از برنامه‌های مرکز جا نمونی</strong><small>خبرها، اکران‌ها و طرح‌های ویژه در کانال مرکز</small></span><b>عضویت ←</b></a>
-      <p class="notice">خدمات قابل رزرو را از بخش رزرو دریافت کن؛ فعال‌بودن خدمات به تنظیمات مرکز بستگی دارد. قطعی‌شدن فقط با تأیید مسئول مرکز است. این صفحه درگاه پرداخت بانکی نیست.</p>
+      <p class="notice">فیلم و سانس را انتخاب کن و رزروت را همین‌جا پیگیری کن.</p>
     </section>
     <section data-view="services" hidden aria-labelledby="services-title"><div class="page-heading"><span>دنیای جهش</span><h1 id="services-title">برای هر علاقه، یک تجربه</h1><p>هر بخش را انتخاب کن و بیشتر بشناس.</p></div><div id="all-services" class="service-list"></div></section>
     <section data-view="booking" hidden aria-labelledby="booking-title"><div class="page-heading"><span>قدم بعدی جهش</span><h1 id="booking-title">رزرو، بدون رفت‌وآمد اضافه</h1><p>رزرو آنلاین در حال آماده‌سازی است. در این پیش‌نمایش هیچ سانس، صندلی یا وجهی ثبت نمی‌شود.</p></div><div class="service-list"><button class="service-row cinema" data-service="cinema"><svg aria-hidden="true"><use href="#film"/></svg><span><strong>سانس سینما</strong><small>انتخاب اکران و رزرو صندلی</small></span><b>به‌زودی</b></button><button class="service-row games" data-service="games"><svg aria-hidden="true"><use href="#game"/></svg><span><strong>بازی و دستگاه</strong><small>انتخاب بازی، زمان و همراهان</small></span><b>به‌زودی</b></button><button class="service-row cafe" data-service="space"><svg aria-hidden="true"><use href="#space"/></svg><span><strong>سالن و دورهمی</strong><small>تولد، اردو و برنامه‌های گروهی</small></span><b>به‌زودی</b></button></div><a class="primary link-button" href="https://eitaa.com/ketab6332" target="_blank" rel="noopener noreferrer">گفت‌وگو با مرکز</a><p class="notice">هماهنگی در گفت‌وگو، به‌تنهایی تأیید رزرو نیست؛ تأیید مسئول مرکز لازم است.</p></section>

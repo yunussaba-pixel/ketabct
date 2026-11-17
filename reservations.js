@@ -2,9 +2,9 @@
 (() => {
   const container=document.querySelector('[data-view="booking"]');
   if(!container)return;
-  container.innerHTML=`<div class="page-heading"><span>رزرو خدمات مرکز</span><h1 id="booking-title">بازیکده، کافه و سینما</h1><p>زمان و خدمت را انتخاب کن؛ قطعی‌شدن پس از بررسی ظرفیت و پرداخت و تأیید مسئول مرکز است.</p></div>
+  container.innerHTML=`<div class="page-heading"><span>رزرو خدمات مرکز</span><h1 id="booking-title">بازیکده، کافه و سینما</h1><button id="reservation-back" class="secondary" type="button" hidden>بازگشت به انتخاب فیلم و سانس</button></div>
     <section class="reservation-panel"><button id="reservation-load" class="primary" type="button">دریافت خدمات قابل رزرو و رزروهای من</button>
-    <p id="reservation-status" role="status" aria-live="polite">برای رزرو این صفحه را از داخل برنامک ایتا باز کن. دریافت فهرست فقط با زدن دکمه انجام می‌شود.</p>
+    <p id="reservation-status" role="status" aria-live="polite" tabindex="-1">سانس دلخواه را انتخاب کن.</p>
     <form id="reservation-form" hidden><label>بخش<select id="reservation-kind"><option value="gamenet">بازیکده</option><option value="cafe">کافه</option><option value="cinema">سینما</option></select></label>
       <label>دستگاه، میز یا سانس<select id="reservation-resource" required></select></label>
       <div id="reservation-window" class="reservation-grid"><label>روز (شمسی)<input id="reservation-date" type="date" required></label><label>ساعت محلی مرکز<input id="reservation-time" type="time" required></label><label>مدت (دقیقه)<input id="reservation-minutes" type="number" required min="1" max="1440" value="60"></label></div>
@@ -36,6 +36,10 @@
   let selectedShowId=query?.get("show")||null;
   if(query?.get("section")==="cinema")node("kind").value="cinema";
   const message=text=>{status.textContent=text;};
+  const reveal=()=>{const target=registration.hidden?status:registration;target.scrollIntoView?.({behavior:"smooth",block:"start"});if(registration.hidden)status.focus?.({preventScroll:true});};
+  const selectStep=selected=>{container.classList.toggle("booking-selected",selected);node("back").hidden=!selected;node("load").hidden=selected;};
+  node("back").onclick=()=>{if(busy||pending)return;selectStep(false);registration.hidden=true;form.hidden=true;};
+  document.addEventListener("jahesh-program-open",()=>{if(!busy&&!pending)selectStep(false);});
   const identity=()=>{
     const raw=window.Eitaa?.WebApp?.initData;
     if(!raw)throw new Error("صفحه را از داخل برنامک ایتا باز کن؛ ورود امضاشده لازم است.");
@@ -122,9 +126,10 @@
         if(item.payment_authorized!==false&&item.amount>0&&!item.receipts.some(row=>["pending","confirmed"].includes(row.status))){
           text(card,"p",item.card_number?"کارت مرکز: "+item.card_number+" · "+item.card_holder:"شماره کارت مرکز تنظیم نشده؛ قبل از پرداخت با مرکز تماس بگیر.");
           const receipt=document.createElement("form");
-          receipt.innerHTML='<label>مبلغ واریزی (تومان)<input name="amount" type="number" required min="1" max="1000000000"></label><label>شماره پیگیری واریز<input name="reference" minlength="3" maxlength="60" required></label><label><input type="checkbox" required> واریز را انجام داده‌ام؛ تأیید دریافت با اپراتور است.</label><button type="submit" class="secondary" data-reservation-action>ثبت اطلاعات رسید</button>';
+          receipt.innerHTML='<label>مبلغ واریزی (تومان)<input name="amount" type="number" required min="1" max="1000000000"></label><label>تاریخ واریز<input name="payment_date" type="date" required></label><label>ساعت دقیق واریز به وقت مرکز<input name="payment_time" type="time" required></label><label>شماره پیگیری واریز<input name="reference" minlength="3" maxlength="60" required></label><label><input type="checkbox" required> واریز را انجام داده‌ام؛ تأیید دریافت با اپراتور است.</label><button type="submit" class="secondary" data-reservation-action>ثبت اطلاعات رسید</button>';
           receipt.elements.namedItem("amount").value=item.amount;
-          receipt.onsubmit=event=>{event.preventDefault();write(item.id+"/receipt",{receipt:{request_key:crypto.randomUUID(),amount:Number(receipt.elements.namedItem("amount").value),reference:receipt.elements.namedItem("reference").value.trim()}});};card.append(receipt);
+          receipt.onsubmit=event=>{event.preventDefault();write(item.id+"/receipt",{receipt:{request_key:crypto.randomUUID(),amount:Number(receipt.elements.namedItem("amount").value),reference:receipt.elements.namedItem("reference").value.trim(),payment_date:receipt.elements.namedItem("payment_date").value,payment_time:receipt.elements.namedItem("payment_time").value}});};card.append(receipt);
+          if(typeof jalaliPickerScan==="function")jalaliPickerScan(receipt);
         }
         if(!item.receipts.some(row=>["pending","confirmed"].includes(row.status))){
           const cancel=text(card,"button","لغو این درخواست");cancel.type="button";cancel.className="secondary";cancel.dataset.reservationAction="";
@@ -156,12 +161,15 @@
   }
   node("load").onclick=async()=>{
     if(busy)return;busy=true;sync();
-    try{catalog=await call("catalog");form.hidden=false;selectResources();await refresh();message("خدمات و رزروها به‌روز شدند. مبلغ قطعی درخواست از مرکز محاسبه می‌شود.");}
-    catch(error){if(error.status===403&&selectedShowId)registration.hidden=false;message(error.message);}finally{busy=false;sync();}
+    message("در حال آماده‌سازی ادامه رزرو…");reveal();
+    try{catalog=await call("catalog");form.hidden=false;selectResources();message("تعداد بلیت را انتخاب کن و ادامه بده.");reveal();await refresh();}
+    catch(error){if(error.status===403&&selectedShowId)registration.hidden=false;message(error.message);reveal();}finally{busy=false;sync();}
   };
   document.addEventListener("jahesh-cinema-selected",event=>{
     if(busy||pending){message("ابتدا نتیجه عملیات قبلی را بررسی کن.");return;}
     selectedShowId=String(event.detail.show_id);node("kind").value="cinema";
+    document.dispatchEvent(new CustomEvent("jahesh-booking-open"));
+    selectStep(true);form.hidden=true;
     registration.hidden=true;
     registration.querySelector("h2").textContent="مشخصات خریدار برای «"+event.detail.title+"»";
     node("load").onclick();

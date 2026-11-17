@@ -31,9 +31,10 @@
     });
     document.getElementById("main").focus({preventScroll: true});
     window.scrollTo({top: 0, behavior: "instant"});
+    document.dispatchEvent(new CustomEvent("jahesh-view-changed",{detail:{view:name}}));
   };
   const openService = (key, trigger) => {
-    if(key==="cinema"){showView("booking");return;}
+    if(key==="cinema"){showView("booking");document.dispatchEvent(new CustomEvent("jahesh-program-open"));return;}
     const service = services[key];
     if (!service) return;
     dialogTrigger = trigger;
@@ -74,7 +75,7 @@
     button.addEventListener("click", () => openService(button.dataset.service, button));
   });
   navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go)));
-  document.addEventListener("jahesh-cinema-selected",()=>showView("booking"));
+  document.addEventListener("jahesh-booking-open",()=>showView("booking"));
   document.querySelector(".brand").addEventListener("click", event => {event.preventDefault(); showView("home");});
   document.getElementById("close-dialog").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => dialogTrigger?.focus());
@@ -93,7 +94,7 @@
       return;
     }
     const rating = document.getElementById("feedback-rating").value;
-    prepared.value = "نظر دربارهٔ پیش‌نمایش جهش\nبخش: " + document.getElementById("feedback-section").value +
+    prepared.value = "نظر دربارهٔ خدمات جهش\nبخش: " + document.getElementById("feedback-section").value +
       (rating ? "\nامتیاز: " + rating : "") + "\n" + text;
     result.hidden = false;
     status.textContent = "متن آماده است؛ هنوز ارسال نشده. آن را کپی و در گفت‌وگوی مرکز ارسال کن.";

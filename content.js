@@ -8,10 +8,17 @@
   button.type="button";button.className="secondary";button.textContent="به‌روزرسانی فیلم‌ها و سانس‌ها";
   status.setAttribute("role","status");shows.className="public-films";section.classList.add("cinema-program");
   section.append(heading,button,status,shows);host.prepend(section);
+  const home=document.querySelector('[data-view="home"]');
+  const directCinema=typeof URLSearchParams!=="undefined"&&new URLSearchParams(window.location?.search||"").get("section")==="cinema";
+  if(home&&!directCinema)home.prepend(section);
+  document.addEventListener("jahesh-view-changed",event=>{
+    if(event.detail.view==="booking")host.prepend(section);
+    else if(event.detail.view==="home"&&home)home.prepend(section);
+  });
   const load=async()=>{
     if(button.disabled)return;
     button.disabled=true;shows.replaceChildren();
-    status.textContent="در حال دریافت برنامه اکران؛ ابتدا فیلم و سانس را انتخاب کن.";
+    status.textContent="در حال دریافت برنامه اکران…";
     try{
       const endpoint=await connectionEndpoint();
       if(!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life\/connect$/.test(endpoint))throw new Error("نشانی مرکز معتبر نیست.");
@@ -36,7 +43,7 @@
         price.textContent=show.duration_minutes?new Intl.NumberFormat("fa-IR").format(show.duration_minutes)+" دقیقه":"سانس‌های قابل انتخاب";
         card.append(title,description,price);
         if(typeof show.poster==="string"&&/^data:image\/(png|jpeg|webp);base64,/.test(show.poster)){
-          const image=document.createElement("img");image.src=show.poster;image.alt=show.title;card.append(image);
+          const image=document.createElement("img");image.src=show.poster;image.alt=show.title;image.width=112;image.height=160;image.decoding="async";card.append(image);
         }
         const slots=document.createElement("div");slots.className="public-showtimes";
         for(const screening of screenings){
@@ -52,7 +59,7 @@
         card.append(slots);
         shows.append(card);
       }
-      status.textContent=films.size?"ابتدا سانس را انتخاب کن؛ مشخصات خریدار هنگام ادامه دریافت می‌شود. ظرفیت هنگام ثبت دوباره کنترل می‌شود.":"فعلاً فیلم و سانسی برای رزرو عمومی منتشر نشده است؛ پس از انتشار برنامه توسط مرکز همین‌جا نمایش داده می‌شود.";
+      status.textContent=films.size?"":"فعلاً فیلم و سانسی برای رزرو عمومی منتشر نشده است؛ پس از انتشار برنامه توسط مرکز همین‌جا نمایش داده می‌شود.";
     }catch(error){shows.replaceChildren();status.textContent=error.message+" دریافت برنامه ناموفق بود؛ این خطا به معنی نبودن اکران نیست.";}
     finally{button.disabled=false;}
   };
