@@ -19,28 +19,41 @@
   const node=id=>document.getElementById("reservation-"+id);
   const form=node("form"),status=node("status");
   const labels={gamenet:"بازیکده",cafe:"کافه",cinema:"سینما"};
+  let sectionKind=null;
   const number=value=>new Intl.NumberFormat("fa-IR").format(value);
   const registration=document.createElement("form");
   registration.className="reservation-panel";
   registration.hidden=true;
-  registration.innerHTML=`<h2>اولین رزرو سینما؟ مشخصات خودت را ثبت کن</h2><p>یک نفر می‌تواند برای همراهانش هم بلیت بگیرد. این ثبت‌نام فقط دسترسی سینما می‌دهد؛ تأیید واریز با مسئول مرکز است.</p>
+  registration.innerHTML=`<h2>اولین مراجعه؟ مشخصات خودت را ثبت کن</h2><p>اگر قبلاً عضو مرکز بوده‌ای، برای جلوگیری از پرونده تکراری با مرکز هماهنگ کن. خدمات هر بخش طبق برنامه و ظرفیت منتشرشده قابل انتخاب است.</p>
     <label>نام<input name="first_name" autocomplete="given-name" maxlength="80" required></label>
     <label>نام خانوادگی<input name="last_name" autocomplete="family-name" maxlength="80" required></label>
     <label>نام پدر<input name="father_name" maxlength="100" required></label>
     <label>شماره همراه<input name="phone" type="tel" inputmode="numeric" maxlength="11" required></label>
     <label><input name="consent" type="checkbox" required> ذخیره مشخصات برای رزرو و بررسی رسید توسط مرکز را می‌پذیرم. شماره همراه هنوز تأیید پیامکی نمی‌شود.</label>
-    <button type="submit" class="primary">ثبت‌نام و ادامه رزرو سینما</button>`;
+    <button type="submit" class="primary">ثبت‌نام و ادامه رزرو</button>`;
   container.insertBefore(registration,container.querySelector(".reservation-panel"));
   let catalog=null,busy=false,pending=null;
   const selectedSeats=new Set();
   const query=typeof URLSearchParams!=="undefined"?new URLSearchParams(window.location?.search||""):null;
   let selectedShowId=query?.get("show")||null;
-  if(query?.get("section")==="cinema")node("kind").value="cinema";
+  const initialKind={cinema:"cinema",games:"gamenet",gamenet:"gamenet",cafe:"cafe"}[query?.get("section")];
+  if(initialKind){sectionKind=initialKind;node("kind").value=initialKind;node("kind").parentElement.hidden=true;document.getElementById("booking-title").textContent=labels[initialKind];}
   const message=text=>{status.textContent=text;};
   const reveal=()=>{const target=registration.hidden?status:registration;target.scrollIntoView?.({behavior:"smooth",block:"start"});if(registration.hidden)status.focus?.({preventScroll:true});};
   const selectStep=selected=>{container.classList.toggle("booking-selected",selected);node("back").hidden=!selected;node("load").hidden=selected;};
   node("back").onclick=()=>{if(busy||pending)return;selectStep(false);registration.hidden=true;form.hidden=true;};
   document.addEventListener("jahesh-program-open",()=>{if(!busy&&!pending)selectStep(false);});
+  document.addEventListener("jahesh-before-service-change",event=>{if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را پیگیری کن.");}});
+  document.addEventListener("jahesh-booking-section",event=>{
+    if(busy||pending)return;
+    sectionKind=event.detail.kind;node("kind").value=sectionKind;
+    node("kind").parentElement.hidden=true;
+    document.getElementById("booking-title").textContent=event.detail.title;
+    selectedShowId=null;selectedSeats.clear();form.hidden=true;registration.hidden=true;
+    node("list").replaceChildren();selectStep(false);
+    node("load").textContent=sectionKind==="cinema"?"رزروهای من در سینما":"انتخاب زمان و رزرو "+labels[sectionKind];
+    message(sectionKind==="cinema"?"فیلم و سانس دلخواه را انتخاب کن.":"برای انتخاب زمان و مشاهده رزروهای همین بخش، ادامه بده.");
+  });
   const identity=()=>{
     if(window.JaheshPublic)return window.JaheshPublic.identity();
     const raw=window.Eitaa?.WebApp?.initData;
@@ -139,7 +152,7 @@
   const text=(parent,tag,value)=>{const child=document.createElement(tag);child.textContent=value;parent.append(child);return child;};
   const render=items=>{
     if(!Array.isArray(items))throw new Error("فهرست رزرو معتبر نیست.");
-    node("list").replaceChildren(...items.map(item=>{
+    node("list").replaceChildren(...items.filter(item=>!sectionKind||item.kind===sectionKind).map(item=>{
       const card=document.createElement("article");card.className="reservation-result";
       if(item.reservation_confirmed===true&&Number.isSafeInteger(item.reservation_reference))card.classList.add("reservation-confirmed");
       text(card,"strong",labels[item.kind]+" · "+item.status_label);
@@ -191,13 +204,14 @@
   node("load").onclick=async()=>{
     if(busy)return;busy=true;sync();
     message("در حال آماده‌سازی ادامه رزرو…");reveal();
-    try{catalog=await call("catalog");form.hidden=false;selectResources();message("تعداد بلیت را انتخاب کن و ادامه بده.");reveal();await refresh();}
-    catch(error){if(error.status===403&&selectedShowId&&window.Eitaa?.WebApp?.initData)registration.hidden=false;message(error.message);if(error.status!==401)reveal();}finally{busy=false;sync();}
+    try{catalog=await call("catalog");form.hidden=false;selectResources();message(node("kind").value==="cinema"?"تعداد بلیت را انتخاب کن و ادامه بده.":"روز، ساعت و مدت استفاده را انتخاب کن.");reveal();await refresh();}
+    catch(error){if(error.status===403&&window.Eitaa?.WebApp?.initData)registration.hidden=false;message(error.message);if(error.status!==401)reveal();}finally{busy=false;sync();}
   };
   document.addEventListener("jahesh-before-account-change",event=>{
     if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را بررسی کن؛ تغییر حساب فعلاً ممکن نیست.");}
   });
-  document.addEventListener("jahesh-web-session-ready",()=>{catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();node("list").replaceChildren();node("load").onclick();});
+  document.addEventListener("jahesh-web-session-ready",()=>{catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();node("list").replaceChildren();});
+  document.addEventListener("jahesh-resume-service",()=>{if(selectedShowId&&!busy&&!pending)node("load").onclick();});
   document.addEventListener("jahesh-web-session-ended",()=>{
     catalog=null;form.hidden=true;node("list").replaceChildren();node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
   });
@@ -216,9 +230,9 @@
     busy=true;button.disabled=true;sync();
     try{
       await call("register",{registration:{first_name:values.get("first_name"),last_name:values.get("last_name"),father_name:values.get("father_name"),phone:values.get("phone"),consent:values.get("consent")==="on"}});
-      registration.hidden=true;node("kind").value="cinema";
+      registration.hidden=true;
       catalog=await call("catalog");form.hidden=false;selectResources();await refresh();
-      message("ثبت‌نام سینما انجام شد؛ سانس و صندلی‌ها را انتخاب کن. ثبت رسید به‌تنهایی تأیید واریز نیست.");
+      message("ثبت‌نام انجام شد؛ زمان و خدمت دلخواه را انتخاب کن. ثبت رسید به‌تنهایی تأیید واریز نیست.");
     }catch(error){message(error.message);}finally{busy=false;button.disabled=false;sync();}
   };
   node("reconcile").onclick=async()=>{

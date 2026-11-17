@@ -22,8 +22,10 @@
   const navigation = Array.from(document.querySelectorAll("[data-go]"));
   const dialog = document.getElementById("service-dialog");
   let dialogTrigger = null;
+  let returnView = "home";
   const showView = name => {
     if (!views.some(view => view.dataset.view === name)) return;
+    if(name==="account")returnView=views.find(view=>!view.hidden&&view.dataset.view!=="account")?.dataset.view||returnView;
     views.forEach(view => {view.hidden = view.dataset.view !== name;});
     navigation.forEach(button => {
       if (button.dataset.go === name) button.setAttribute("aria-current", "page");
@@ -32,9 +34,19 @@
     document.getElementById("main").focus({preventScroll: true});
     window.scrollTo({top: 0, behavior: "instant"});
     document.dispatchEvent(new CustomEvent("jahesh-view-changed",{detail:{view:name}}));
+    const requests=document.getElementById("service-requests-panel");
+    if(requests){requests.hidden=name!=="booking";if(name==="booking")views.find(view=>view.dataset.view==="booking")?.append(requests);}
   };
   const openService = (key, trigger) => {
-    if(key==="cinema"){showView("booking");document.dispatchEvent(new CustomEvent("jahesh-program-open"));return;}
+    if(document.dispatchEvent(new CustomEvent("jahesh-before-service-change",{cancelable:true}))===false)return;
+    const kinds={cinema:"cinema",games:"gamenet",cafe:"cafe"};
+    if(kinds[key]){
+      showView("booking");
+      const requestSection=document.getElementById("request-section");if(requestSection){requestSection.value=key;requestSection.disabled=true;}
+      document.dispatchEvent(new CustomEvent("jahesh-booking-section",{detail:{kind:kinds[key],title:services[key].title}}));
+      if(key==="cinema")document.dispatchEvent(new CustomEvent("jahesh-program-open"));
+      return;
+    }
     const service = services[key];
     if (!service) return;
     dialogTrigger = trigger;
@@ -50,6 +62,8 @@
       return item;
     }));
     dialog.showModal();
+    const requests=document.getElementById("service-requests-panel");if(requests){dialog.append(requests);requests.hidden=false;}
+    const requestSection=document.getElementById("request-section");if(requestSection){requestSection.value=key;requestSection.disabled=true;}
     document.dispatchEvent(new CustomEvent("jahesh-service-open",{detail:{service:key}}));
   };
   const list = document.getElementById("all-services");
@@ -75,12 +89,14 @@
   document.querySelectorAll("[data-service]").forEach(button => {
     button.addEventListener("click", () => openService(button.dataset.service, button));
   });
-  navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go)));
+  navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go==="booking"?"services":button.dataset.go)));
   document.addEventListener("jahesh-booking-open",()=>showView("booking"));
+  document.addEventListener("jahesh-account-open",()=>showView("account"));
+  document.addEventListener("jahesh-account-return",()=>{showView(returnView);document.dispatchEvent(new CustomEvent("jahesh-resume-service"));});
   document.querySelector(".brand").addEventListener("click", event => {event.preventDefault(); showView("home");});
   document.getElementById("close-dialog").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => dialogTrigger?.focus());
-  document.getElementById("dialog-booking").addEventListener("click", () => {dialog.close(); showView("booking");});
+  document.getElementById("dialog-booking").addEventListener("click", () => {document.getElementById("service-requests-panel").open=true;});
   const feedback = document.getElementById("feedback-text");
   const result = document.getElementById("feedback-result");
   const prepared = document.getElementById("feedback-prepared");
@@ -114,5 +130,8 @@
       status.textContent = "کپی خودکار در دسترس نیست؛ متن انتخاب‌شده را دستی کپی کن. چیزی ارسال نشده است.";
     }
   });
-  if(typeof URLSearchParams!=="undefined"&&new URLSearchParams(window.location?.search||"").get("section")==="cinema")showView("booking");
+  if(typeof URLSearchParams!=="undefined"){
+    const section=new URLSearchParams(window.location?.search||"").get("section");
+    if(["cinema","games","gamenet","cafe"].includes(section)){showView("booking");const selector=document.getElementById("request-section");if(selector){selector.value=section==="gamenet"?"games":section;selector.disabled=true;}}
+  }
 })();

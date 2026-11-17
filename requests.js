@@ -167,6 +167,9 @@
   document.addEventListener("jahesh-before-account-change",event=>{
     if(busy||(requestKey&&!displayedItems.some(item=>item.request_key===requestKey))){event.preventDefault();status.textContent="ابتدا نتیجه درخواست قبلی را پیگیری کن؛ تغییر حساب فعلاً ممکن نیست.";}
   });
+  document.addEventListener("jahesh-before-service-change",event=>{
+    if(busy||(requestKey&&!displayedItems.some(item=>item.request_key===requestKey))){event.preventDefault();status.textContent="ابتدا نتیجه درخواست قبلی را پیگیری کن؛ تغییر بخش فعلاً ممکن نیست.";}
+  });
   for(const event of ["jahesh-web-session-ready","jahesh-web-session-ended"]){
     document.addEventListener(event,()=>{displayedItems=[];requestKey=null;freeze(false);node("request-text").value="";node("request-consent").checked=false;node("lookup-service-request").hidden=true;node("service-request-list").replaceChildren();status.textContent="";});
   }

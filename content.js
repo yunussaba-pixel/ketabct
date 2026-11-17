@@ -8,13 +8,8 @@
   button.type="button";button.className="secondary";button.textContent="به‌روزرسانی فیلم‌ها و سانس‌ها";
   status.setAttribute("role","status");shows.className="public-films";section.classList.add("cinema-program");
   section.append(heading,button,status,shows);host.prepend(section);
-  const home=document.querySelector('[data-view="home"]');
-  const directCinema=typeof URLSearchParams!=="undefined"&&new URLSearchParams(window.location?.search||"").get("section")==="cinema";
-  if(home&&!directCinema)home.prepend(section);
-  document.addEventListener("jahesh-view-changed",event=>{
-    if(event.detail.view==="booking")host.prepend(section);
-    else if(event.detail.view==="home"&&home)home.prepend(section);
-  });
+  if(typeof URLSearchParams!=="undefined"){const initial=new URLSearchParams(window.location?.search||"").get("section");section.hidden=initial==="games"||initial==="gamenet"||initial==="cafe";}
+  document.addEventListener("jahesh-booking-section",event=>{section.hidden=event.detail.kind!=="cinema";});
   const load=async()=>{
     if(button.disabled)return;
     button.disabled=true;shows.replaceChildren();
