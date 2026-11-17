@@ -8,7 +8,30 @@
   let available = false;
   let busy = false;
   let displayedItems = [];
-  const freeze = locked => controls.forEach(name => {node(name).disabled = locked;});
+  let resolved = false;
+  let activeSection = null;
+  const nextRequest = document.createElement("button");
+  nextRequest.type = "button";
+  nextRequest.className = "secondary";
+  nextRequest.textContent = "درخواست جدید";
+  nextRequest.hidden = true;
+  node("service-request-form").append(nextRequest);
+  const freeze = locked => controls.forEach(name => {node(name).disabled = locked || name === "request-section";});
+  const resetForm = () => {
+    requestKey = null;
+    resolved = false;
+    freeze(false);
+    nextRequest.hidden = true;
+    node("request-text").value = "";
+    node("request-consent").checked = false;
+    node("lookup-service-request").hidden = true;
+  };
+  nextRequest.addEventListener("click", () => {
+    if (busy || !resolved) return;
+    resetForm();
+    status.textContent = "فرم برای درخواست جدید آماده است؛ درخواست قبلی در فهرست پیگیری حفظ می‌شود.";
+    node("request-text").focus?.();
+  });
   const signedIdentity = () => {
     if(window.JaheshPublic)return window.JaheshPublic.identity().init_data||"";
     const raw = window.Eitaa?.WebApp?.initData;
@@ -93,8 +116,10 @@
       return card;
     });
     displayedItems = items;
+    if (requestKey && items.some(item => item.request_key === requestKey)) resolved = true;
+    nextRequest.hidden = !resolved;
     node("service-request-list").replaceChildren(...cards);
-    if (!items.length) status.textContent = "درخواستی برای این حساب پیدا نشد.";
+    if (!items.length) status.textContent = "درخواستی برای حساب شما در این بخش پیدا نشد.";
   };
   node("request-availability").addEventListener("click", async () => {
     if (busy) return;
@@ -125,6 +150,7 @@
     try {
       raw = signedIdentity();
       requestKey = crypto.randomUUID();
+      resolved = false;
     } catch (error) {
       status.textContent = error.message;
       return;
@@ -156,21 +182,34 @@
     try {
       const result = await call(currentOnly ? "/service-requests/" + requestKey + "/status" : "/service-requests/list",
         {init_data: signedIdentity()});
-      render(currentOnly ? [result] : result.items);
-      if (currentOnly || result.items.length) status.textContent = "وضعیت درخواست‌ها دریافت شد؛ ثبت درخواست به معنی رزرو قطعی نیست.";
+      if (!currentOnly && !Array.isArray(result.items)) throw new Error("فهرست درخواست‌ها معتبر نیست.");
+      const items = currentOnly ? [result] : result.items.filter(item => item?.section === node("request-section").value);
+      render(items);
+      if (items.length) status.textContent = "وضعیت درخواست‌ها دریافت شد؛ ثبت درخواست به معنی رزرو قطعی نیست.";
     } catch (error) {
       status.textContent = error.message || "استعلام تکمیل نشد؛ ثبت را تکرار نکن.";
     } finally {busy = false;}
   };
   node("lookup-service-request").addEventListener("click", () => query(true));
   node("list-service-requests").addEventListener("click", () => query(false));
+  for (const event of ["jahesh-booking-section", "jahesh-service-open"]) {
+    document.addEventListener(event, () => {
+      const section = node("request-section").value;
+      if (section === activeSection) return;
+      activeSection = section;
+      resetForm();
+      displayedItems = [];
+      node("service-request-list").replaceChildren();
+      status.textContent = "";
+    });
+  }
   document.addEventListener("jahesh-before-account-change",event=>{
-    if(busy||(requestKey&&!displayedItems.some(item=>item.request_key===requestKey))){event.preventDefault();status.textContent="ابتدا نتیجه درخواست قبلی را پیگیری کن؛ تغییر حساب فعلاً ممکن نیست.";}
+    if(busy||(requestKey&&!resolved)){event.preventDefault();status.textContent="ابتدا نتیجه درخواست قبلی را پیگیری کن؛ تغییر حساب فعلاً ممکن نیست.";}
   });
   document.addEventListener("jahesh-before-service-change",event=>{
-    if(busy||(requestKey&&!displayedItems.some(item=>item.request_key===requestKey))){event.preventDefault();status.textContent="ابتدا نتیجه درخواست قبلی را پیگیری کن؛ تغییر بخش فعلاً ممکن نیست.";}
+    if(busy||(requestKey&&!resolved)){event.preventDefault();status.textContent="ابتدا نتیجه درخواست قبلی را پیگیری کن؛ تغییر بخش فعلاً ممکن نیست.";}
   });
   for(const event of ["jahesh-web-session-ready","jahesh-web-session-ended"]){
-    document.addEventListener(event,()=>{displayedItems=[];requestKey=null;freeze(false);node("request-text").value="";node("request-consent").checked=false;node("lookup-service-request").hidden=true;node("service-request-list").replaceChildren();status.textContent="";});
+    document.addEventListener(event,()=>{displayedItems=[];resetForm();node("service-request-list").replaceChildren();status.textContent="";});
   }
 })();

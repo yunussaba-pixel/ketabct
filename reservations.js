@@ -260,17 +260,54 @@
   };
   const libraryPanel=document.createElement("section");
   libraryPanel.hidden=true;libraryPanel.className="reservation-panel";
-  libraryPanel.innerHTML='<h3>عضویت و امانت‌های من</h3><button id="reservation-library-load" type="button" class="secondary">دریافت وضعیت من</button><p id="reservation-library-status" role="status" aria-live="polite"></p><div id="reservation-library-loans"></div>';
+  libraryPanel.innerHTML='<h3>کتابخانه شهدای محمودآباد</h3><form id="reservation-library-search"><label>عنوان کتاب، نویسنده، موضوع یا شابک<input id="reservation-library-query" type="search" maxlength="200" autocomplete="off"></label><button id="reservation-library-search-button" type="submit" class="secondary">جست‌وجوی کتاب‌های این کتابخانه</button></form><p id="reservation-library-catalog-status" role="status" aria-live="polite"></p><div id="reservation-library-books"></div><button id="reservation-library-more" type="button" class="secondary" hidden>نتایج بیشتر</button><h3>عضویت و امانت‌های من</h3><button id="reservation-library-load" type="button" class="secondary">دریافت وضعیت من</button><p id="reservation-library-status" role="status" aria-live="polite"></p><div id="reservation-library-loans"></div>';
   document.getElementById("service-dialog")?.append(libraryPanel);
   let libraryRevision=0,libraryBusy=false;
+  let catalogRevision=0,librarySearchBusy=false,librarySearchOffset=0,librarySearchQuery="";
+  const searchBooks=async(more=false)=>{
+    if(librarySearchBusy)return;
+    librarySearchBusy=true;node("library-search-button").disabled=true;node("library-more").disabled=true;
+    const revision=++catalogRevision;
+    if(!more){librarySearchOffset=0;librarySearchQuery=node("library-query").value.trim();node("library-books").replaceChildren();}
+    node("library-catalog-status").textContent="در حال جست‌وجو در فهرست همین کتابخانه…";
+    node("library-more").hidden=true;
+    try{
+      const endpoint=await connectionEndpoint();
+      if(!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life\/connect$/.test(endpoint))throw new Error("نشانی امن مرکز در دسترس نیست.");
+      const response=await fetch(endpoint.slice(0,-8)+"/library/catalog?query="+encodeURIComponent(librarySearchQuery)+"&offset="+librarySearchOffset,{credentials:"omit",redirect:"error",cache:"no-store",...(typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(20000)}:{})});
+      if(!response.ok)throw new Error("دریافت فهرست کتابخانه ممکن نشد؛ دوباره تلاش کن.");
+      const result=await response.json();if(revision!==catalogRevision)return;
+      if(result.library_code!=="0048"||!Array.isArray(result.items))throw new Error("پاسخ مربوط به کتابخانه مرکز نیست.");
+      node("library-catalog-status").textContent=result.notice;
+      if(result.ready&&!result.items.length)text(node("library-books"),"p",result.complete?"عنوانی مطابق این عبارت در گزارش دریافتی یافت نشد.":"در بخش دریافت‌شده عنوانی یافت نشد؛ فهرست هنوز کامل نیست.");
+      const labels={available:"قابل امانت در زمان گزارش",on_loan:"در امانت در زمان گزارش",unavailable:"غیرقابل امانت در زمان گزارش",unknown:"وضعیت نسخه نیازمند استعلام"};
+      for(const book of result.items){
+        const card=document.createElement("article");card.className="reservation-result";
+        text(card,"h4",book.title);if(book.author)text(card,"p","نویسنده: "+book.author);
+        if(book.category)text(card,"p","بخش: "+book.category);
+        if(book.isbn)text(card,"p","شابک: "+book.isbn);
+        text(card,"p",labels[book.availability]||labels.unknown);
+        if(book.captured_at&&Number.isFinite(Date.parse(book.captured_at)))text(card,"p","آخرین دریافت: "+date(book.captured_at));
+        node("library-books").append(card);
+      }
+      librarySearchOffset+=result.items.length;
+      node("library-more").hidden=librarySearchOffset>=result.total;
+    }catch(error){if(revision===catalogRevision)node("library-catalog-status").textContent=error.message;}
+    finally{librarySearchBusy=false;node("library-search-button").disabled=false;node("library-more").disabled=false;}
+  };
+  node("library-search").onsubmit=event=>{event.preventDefault();return searchBooks();};
+  node("library-more").onclick=()=>searchBooks(true);
   const renewalKeys=new Map();
   document.addEventListener("jahesh-service-open",event=>{
     libraryRevision++;libraryPanel.hidden=event.detail?.service!=="library";
+    catalogRevision++;node("library-books").replaceChildren();node("library-more").hidden=true;
+    node("library-catalog-status").textContent="جست‌وجوی کتاب بدون ورود هم ممکن است؛ فقط موجودی گزارش‌شده شهدای محمودآباد نمایش داده می‌شود.";
     document.getElementById("service-dialog")?.classList.toggle("library-service-open",!libraryPanel.hidden);
     node("library-loans").replaceChildren();node("library-status").textContent="اطلاعات فقط برای صاحب حساب معتبر و پرونده متصل کتابخانه نمایش داده می‌شود؛ ورود وب هم قابل استفاده است.";
   });
   document.getElementById("service-dialog")?.addEventListener("close",()=>{
     libraryRevision++;node("library-loans").replaceChildren();node("library-status").textContent="";
+    catalogRevision++;
   });
   node("library-load").onclick=async()=>{
     if(libraryBusy)return;
@@ -280,8 +317,9 @@
     try{
       const result=await call("library/status");if(revision!==libraryRevision)return;
       const membership={active:"فعال",inactive:"غیرفعال",unknown:"نامشخص"};
-      const expiry=result.membership_ends_on?new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(result.membership_ends_on+"T12:00:00Z")):"ثبت نشده";
-      node("library-status").textContent="عضویت: "+(membership[result.membership_status]||"نامشخص")+" · اعتبار تا: "+expiry+" · "+result.notice;
+      const expiry=result.membership_ends_on&&Number.isFinite(Date.parse(result.membership_ends_on+"T12:00:00Z"))?new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(result.membership_ends_on+"T12:00:00Z")):"ثبت نشده";
+      const captured=result.captured_at&&Number.isFinite(Date.parse(result.captured_at))?" · آخرین دریافت از شهرداری: "+date(result.captured_at):"";
+      node("library-status").textContent="عضویت: "+(membership[result.membership_status]||"نامشخص")+" · اعتبار تا: "+expiry+captured+" · "+result.notice;
       if(!result.fresh)return;
       if(!result.loans.length)text(node("library-loans"),"p","در آخرین اطلاعات معتبر، امانتی ثبت نشده است.");
       for(const loan of result.loans){
