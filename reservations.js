@@ -8,6 +8,7 @@
     <form id="reservation-form" hidden><label>بخش<select id="reservation-kind"><option value="gamenet">بازیکده</option><option value="cafe">کافه</option><option value="cinema">سینما</option></select></label>
       <label>دستگاه، میز یا سانس<select id="reservation-resource" required></select></label>
       <div id="reservation-window" class="reservation-grid"><label>روز (شمسی)<input id="reservation-date" type="date" required></label><label>ساعت محلی مرکز<input id="reservation-time" type="time" required></label><label>مدت (دقیقه)<input id="reservation-minutes" type="number" required min="1" max="1440" value="60"></label></div>
+      <fieldset id="reservation-availability" hidden><legend>زمان‌های قابل درخواست بازیکده</legend><div class="reservation-grid"><label>جست‌وجو از ساعت<input id="reservation-search-start" type="time" value="09:00"></label><label>تا ساعت<input id="reservation-search-end" type="time" value="23:00"></label></div><button id="reservation-search" class="secondary" type="button">نمایش زمان‌ها</button><p id="reservation-slots-status" role="status" aria-live="polite"></p><div id="reservation-slots" class="reservation-seats"></div></fieldset>
       <label id="reservation-quantity-label">تعداد مهمان یا بلیت<input id="reservation-quantity" type="number" min="1" max="100" value="1" required></label>
       <fieldset id="reservation-seating" hidden><legend>صندلی‌های آزاد را انتخاب کن</legend><div id="reservation-seats" class="reservation-seats"></div><p id="reservation-seat-summary" aria-live="polite"></p></fieldset>
       <p id="reservation-estimate" class="notice"></p><label><input id="reservation-consent" type="checkbox" required> زمان، خدمت و مبلغ برآوردی را بررسی کردم. ثبت این فرم به‌تنهایی تأیید نهایی نیست.</label>
@@ -41,11 +42,13 @@
   node("back").onclick=()=>{if(busy||pending)return;selectStep(false);registration.hidden=true;form.hidden=true;};
   document.addEventListener("jahesh-program-open",()=>{if(!busy&&!pending)selectStep(false);});
   const identity=()=>{
+    if(window.JaheshPublic)return window.JaheshPublic.identity();
     const raw=window.Eitaa?.WebApp?.initData;
     if(!raw)throw new Error("صفحه را از داخل برنامک ایتا باز کن؛ ورود امضاشده لازم است.");
     return raw;
   };
   const call=async(path,payload={})=>{
+    if(window.JaheshPublic)return window.JaheshPublic.call("/reservations/"+path,payload);
     const raw=identity(),endpoint=await connectionEndpoint();
     if(!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life\/connect$/.test(endpoint))throw new Error("نشانی امن مرکز در دسترس نیست.");
     let response;
@@ -61,6 +64,31 @@
   };
   const date=value=>new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeStyle:"short",timeZone:catalog?.timezone||"Asia/Tehran"}).format(new Date(value));
   const resource=()=>catalog?.resources.find(row=>row.kind===node("kind").value&&String(row.id)===node("resource").value);
+  let availabilityRevision=0;
+  const clearAvailability=()=>{
+    availabilityRevision++;node("slots").replaceChildren();node("slots-status").textContent="روز و مدت بازی را مشخص کن و «نمایش زمان‌ها» را بزن.";
+    node("availability").hidden=resource()?.kind!=="gamenet";
+  };
+  node("search").onclick=async()=>{
+    if(busy||pending||resource()?.kind!=="gamenet")return;
+    if(!node("date").value||!Number.isInteger(Number(node("minutes").value))||Number(node("minutes").value)<1){node("slots-status").textContent="روز و مدت معتبر را انتخاب کن.";return;}
+    const revision=++availabilityRevision;
+    const availability={resource_id:resource().id,local_date:node("date").value,minutes:Number(node("minutes").value),window_start:node("search-start").value,window_end:node("search-end").value};
+    node("search").disabled=true;node("slots").replaceChildren();node("slots-status").textContent="در حال بررسی زمان‌ها…";
+    try{
+      const result=await call("availability",{availability});
+      if(revision!==availabilityRevision)return;
+      if(!Array.isArray(result.items))throw new Error("پاسخ زمان‌های قابل درخواست معتبر نیست.");
+      node("slots-status").textContent=(result.items.length?"یک ساعت را انتخاب کن. ":"در این بازه زمان بدون تداخل پیدا نشد. ")+(result.live_session_notice||"")+" "+result.notice;
+      node("slots").replaceChildren(...result.items.map(slot=>{
+        const button=document.createElement("button");button.type="button";button.className="secondary";
+        button.textContent=new Intl.NumberFormat("fa-IR",{minimumIntegerDigits:2,useGrouping:false}).format(Number(slot.local_time.slice(0,2)))+":"+new Intl.NumberFormat("fa-IR",{minimumIntegerDigits:2,useGrouping:false}).format(Number(slot.local_time.slice(3)));
+        button.onclick=()=>{if(busy||pending||revision!==availabilityRevision)return;node("time").value=slot.local_time;estimate();node("slots-status").textContent="ساعت "+button.textContent+" انتخاب شد؛ برای نگه‌داشتن زمان، رزرو را ثبت کن.";};
+        return button;
+      }));
+    }catch(error){if(revision===availabilityRevision)node("slots-status").textContent=error.message;}
+    finally{node("search").disabled=false;}
+  };
   const sync=()=>{
     form.querySelectorAll("input,select,button").forEach(control=>{control.disabled=busy||Boolean(pending)||control.dataset.seatUnavailable==="true";});
     node("load").disabled=busy;
@@ -94,6 +122,7 @@
     node("resource").replaceChildren(...options);
     if(node("kind").value==="cinema"&&selectedShowId)node("resource").value=options.some(option=>String(option.value)===String(selectedShowId))?String(selectedShowId):"";
     selectSeats();estimate();
+    clearAvailability();
     form.querySelector('[type="submit"]').hidden=!options.length||!resource();
   };
   const selectSeats=()=>{
@@ -163,8 +192,15 @@
     if(busy)return;busy=true;sync();
     message("در حال آماده‌سازی ادامه رزرو…");reveal();
     try{catalog=await call("catalog");form.hidden=false;selectResources();message("تعداد بلیت را انتخاب کن و ادامه بده.");reveal();await refresh();}
-    catch(error){if(error.status===403&&selectedShowId)registration.hidden=false;message(error.message);reveal();}finally{busy=false;sync();}
+    catch(error){if(error.status===403&&selectedShowId&&window.Eitaa?.WebApp?.initData)registration.hidden=false;message(error.message);if(error.status!==401)reveal();}finally{busy=false;sync();}
   };
+  document.addEventListener("jahesh-before-account-change",event=>{
+    if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را بررسی کن؛ تغییر حساب فعلاً ممکن نیست.");}
+  });
+  document.addEventListener("jahesh-web-session-ready",()=>{catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();node("list").replaceChildren();node("load").onclick();});
+  document.addEventListener("jahesh-web-session-ended",()=>{
+    catalog=null;form.hidden=true;node("list").replaceChildren();node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
+  });
   document.addEventListener("jahesh-cinema-selected",event=>{
     if(busy||pending){message("ابتدا نتیجه عملیات قبلی را بررسی کن.");return;}
     selectedShowId=String(event.detail.show_id);node("kind").value="cinema";
@@ -197,6 +233,7 @@
   node("kind").onchange=selectResources;
   node("resource").addEventListener("change",selectSeats);
   for(const key of ["resource","date","time","minutes","quantity"])node(key).addEventListener("change",estimate);
+  for(const key of ["resource","date","minutes","search-start","search-end"])node(key).addEventListener("change",clearAvailability);
   form.onsubmit=event=>{
     event.preventDefault();const row=resource();if(!row)return;
     const booking={request_key:crypto.randomUUID(),kind:row.kind,resource_id:row.id,quantity:row.kind==="gamenet"?1:Number(node("quantity").value)};
@@ -206,6 +243,62 @@
     }
     if(row.kind!=="cinema")Object.assign(booking,{local_date:node("date").value,local_time:node("time").value,minutes:Number(node("minutes").value)});
     write("book",{booking});
+  };
+  const libraryPanel=document.createElement("section");
+  libraryPanel.hidden=true;libraryPanel.className="reservation-panel";
+  libraryPanel.innerHTML='<h3>عضویت و امانت‌های من</h3><button id="reservation-library-load" type="button" class="secondary">دریافت وضعیت من</button><p id="reservation-library-status" role="status" aria-live="polite"></p><div id="reservation-library-loans"></div>';
+  document.getElementById("service-dialog")?.append(libraryPanel);
+  let libraryRevision=0,libraryBusy=false;
+  const renewalKeys=new Map();
+  document.addEventListener("jahesh-service-open",event=>{
+    libraryRevision++;libraryPanel.hidden=event.detail?.service!=="library";
+    document.getElementById("service-dialog")?.classList.toggle("library-service-open",!libraryPanel.hidden);
+    node("library-loans").replaceChildren();node("library-status").textContent="اطلاعات فقط برای صاحب حساب معتبر و پرونده متصل کتابخانه نمایش داده می‌شود؛ ورود وب هم قابل استفاده است.";
+  });
+  document.getElementById("service-dialog")?.addEventListener("close",()=>{
+    libraryRevision++;node("library-loans").replaceChildren();node("library-status").textContent="";
+  });
+  node("library-load").onclick=async()=>{
+    if(libraryBusy)return;
+    libraryBusy=true;node("library-load").disabled=true;
+    const revision=++libraryRevision;
+    node("library-loans").replaceChildren();node("library-status").textContent="در حال دریافت اطلاعات کتابخانه…";
+    try{
+      const result=await call("library/status");if(revision!==libraryRevision)return;
+      const membership={active:"فعال",inactive:"غیرفعال",unknown:"نامشخص"};
+      const expiry=result.membership_ends_on?new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(result.membership_ends_on+"T12:00:00Z")):"ثبت نشده";
+      node("library-status").textContent="عضویت: "+(membership[result.membership_status]||"نامشخص")+" · اعتبار تا: "+expiry+" · "+result.notice;
+      if(!result.fresh)return;
+      if(!result.loans.length)text(node("library-loans"),"p","در آخرین اطلاعات معتبر، امانتی ثبت نشده است.");
+      for(const loan of result.loans){
+        const card=document.createElement("article");card.className="reservation-result";
+        text(card,"h4",loan.book||"کتاب");
+        if(loan.due_date)text(card,"p","سررسید: "+new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(loan.due_date+"T12:00:00Z")));
+        if(loan.overdue_days)text(card,"p",number(loan.overdue_days)+" روز دیرکرد");
+        if(loan.barcode&&result.membership_status==="active"){
+          const label=document.createElement("label"),consent=document.createElement("input");consent.type="checkbox";
+          label.append(consent,document.createTextNode("درخواست بررسی تمدید توسط مسئول کتابخانه را تأیید می‌کنم."));card.append(label);
+          const button=document.createElement("button");button.type="button";button.className="secondary";button.textContent="درخواست تمدید";card.append(button);
+          const notice=text(card,"p","");notice.setAttribute("role","status");
+          const signature=loan.barcode+":"+loan.due_date;
+          button.onclick=async()=>{
+            if(!consent.checked){notice.textContent="ابتدا ثبت درخواست بررسی را تأیید کن.";return;}
+            if(libraryBusy||revision!==libraryRevision)return;
+            libraryBusy=true;button.disabled=true;
+            if(!renewalKeys.has(signature))renewalKeys.set(signature,crypto.randomUUID());
+            try{
+              const response=await call("library/renew-request",{request_key:renewalKeys.get(signature),barcode:loan.barcode,confirm_submission:true});
+              if(revision!==libraryRevision)return;
+              notice.textContent="درخواست برای مسئول کتابخانه ثبت شد؛ تمدید هنوز تأیید نشده است. کد پیگیری: "+response.request_key;
+              button.textContent="درخواست ثبت شد";
+            }catch(error){if(revision===libraryRevision){notice.textContent=error.message;button.textContent="تکرار امن همان درخواست";button.disabled=false;}}
+            finally{libraryBusy=false;}
+          };
+        }
+        node("library-loans").append(card);
+      }
+    }catch(error){if(revision===libraryRevision)node("library-status").textContent=error.message;}
+    finally{libraryBusy=false;node("library-load").disabled=false;}
   };
   if(typeof jalaliPickerScan==="function")jalaliPickerScan(container);
   if(selectedShowId)node("load").onclick();

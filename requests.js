@@ -10,11 +10,13 @@
   let displayedItems = [];
   const freeze = locked => controls.forEach(name => {node(name).disabled = locked;});
   const signedIdentity = () => {
+    if(window.JaheshPublic)return window.JaheshPublic.identity().init_data||"";
     const raw = window.Eitaa?.WebApp?.initData;
     if (!raw) throw new Error("برای ثبت و پیگیری درخواست، این صفحه را از داخل برنامک ایتا باز کن.");
     return raw;
   };
   const call = async (path, payload) => {
+    if(payload&&window.JaheshPublic)return window.JaheshPublic.call(path,payload);
     const endpoint = await connectionEndpoint();
     if (!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life\/connect$/.test(endpoint)) {
       throw new Error("نشانی معتبر مرکز در دسترس نیست؛ اطلاعات ارسال نشد.");
@@ -162,4 +164,10 @@
   };
   node("lookup-service-request").addEventListener("click", () => query(true));
   node("list-service-requests").addEventListener("click", () => query(false));
+  document.addEventListener("jahesh-before-account-change",event=>{
+    if(busy||(requestKey&&!displayedItems.some(item=>item.request_key===requestKey))){event.preventDefault();status.textContent="ابتدا نتیجه درخواست قبلی را پیگیری کن؛ تغییر حساب فعلاً ممکن نیست.";}
+  });
+  for(const event of ["jahesh-web-session-ready","jahesh-web-session-ended"]){
+    document.addEventListener(event,()=>{displayedItems=[];requestKey=null;freeze(false);node("request-text").value="";node("request-consent").checked=false;node("lookup-service-request").hidden=true;node("service-request-list").replaceChildren();status.textContent="";});
+  }
 })();
