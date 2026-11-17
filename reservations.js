@@ -3,7 +3,7 @@
   const container=document.querySelector('[data-view="booking"]');
   if(!container)return;
   container.innerHTML=`<div class="page-heading"><span>رزرو خدمات مرکز</span><h1 id="booking-title">بازیکده، کافه و سینما</h1><button id="reservation-back" class="secondary" type="button" hidden>بازگشت به انتخاب فیلم و سانس</button></div>
-    <section class="reservation-panel"><button id="reservation-load" class="primary" type="button">دریافت خدمات قابل رزرو و رزروهای من</button>
+    <section class="reservation-panel"><button id="reservation-load" class="primary" type="button">به‌روزرسانی خدمات، رزروها و بلیت‌های من</button>
     <p id="reservation-status" role="status" aria-live="polite" tabindex="-1">سانس دلخواه را انتخاب کن.</p>
     <form id="reservation-form" hidden><label>بخش<select id="reservation-kind"><option value="gamenet">بازیکده</option><option value="cafe">کافه</option><option value="cinema">سینما</option></select></label>
       <label>دستگاه، میز یا سانس<select id="reservation-resource" required></select></label>
@@ -24,15 +24,38 @@
   const registration=document.createElement("form");
   registration.className="reservation-panel";
   registration.hidden=true;
-  registration.innerHTML=`<h2>اولین مراجعه؟ مشخصات خودت را ثبت کن</h2><p>اگر قبلاً عضو مرکز بوده‌ای، برای جلوگیری از پرونده تکراری با مرکز هماهنگ کن. خدمات هر بخش طبق برنامه و ظرفیت منتشرشده قابل انتخاب است.</p>
+  registration.innerHTML=`<h2>ورود و ادامه رزرو</h2><p>اگر قبلاً عضو مرکز هستی، پرونده خودت را همین‌جا با مشخصات و کد تأیید همراه متصل کن؛ نیازی به حضور اپراتور نیست.</p>
+    <button id="reservation-member-mode" type="button" class="secondary">قبلاً عضو هستم؛ اتصال خودکار</button>
+    <button id="reservation-new-mode" type="button" class="secondary" hidden>اولین مراجعه؛ ثبت‌نام جدید</button>
+    <fieldset id="reservation-register-new"><legend>مشخصات عضو جدید</legend>
     <label>نام<input name="first_name" autocomplete="given-name" maxlength="80" required></label>
     <label>نام خانوادگی<input name="last_name" autocomplete="family-name" maxlength="80" required></label>
     <label>نام پدر<input name="father_name" maxlength="100" required></label>
     <label>شماره همراه<input name="phone" type="tel" inputmode="numeric" maxlength="11" required></label>
-    <label><input name="consent" type="checkbox" required> ذخیره مشخصات برای رزرو و بررسی رسید توسط مرکز را می‌پذیرم. شماره همراه هنوز تأیید پیامکی نمی‌شود.</label>
-    <button type="submit" class="primary">ثبت‌نام و ادامه رزرو</button>`;
+    <label><input name="consent" type="checkbox" required> ذخیره مشخصات برای رزرو و بررسی رسید توسط مرکز را می‌پذیرم. شماره همراه هنوز تأیید پیامکی نمی‌شود.</label></fieldset>
+    <fieldset id="reservation-register-member" hidden disabled><legend>اتصال پرونده قبلی</legend>
+    <label>کد ملی<input name="member_national_id" inputmode="numeric" minlength="10" maxlength="10" required autocomplete="off"></label>
+    <label>تاریخ تولد (شمسی)<input name="member_birth_date" type="date" required autocomplete="bday"></label>
+    <label>همراه ثبت‌شده در پرونده<input name="member_phone" type="tel" inputmode="numeric" maxlength="20" required autocomplete="tel"></label>
+    <label><input name="member_consent" type="checkbox" required> تطبیق مشخصات و دریافت کد تأیید همراه خودم را می‌پذیرم.</label></fieldset>
+    <fieldset id="reservation-register-proof" hidden disabled><legend>تأیید همراه</legend>
+    <label>کد تأیید شش‌رقمی<input name="member_code" inputmode="numeric" minlength="6" maxlength="6" required autocomplete="one-time-code"></label></fieldset>
+    <button id="reservation-member-edit" type="button" class="secondary" hidden>اصلاح مشخصات / دریافت کد تازه</button>
+    <button id="reservation-register-submit" type="submit" class="primary">ثبت‌نام و ادامه رزرو</button>`;
   container.insertBefore(registration,container.querySelector(".reservation-panel"));
   let catalog=null,busy=false,pending=null;
+  let memberMode=false,memberChallenge="";
+  const memberStep=()=>{
+    for(const [name,enabled] of [["new",!memberMode],["member",memberMode&&!memberChallenge],["proof",memberMode&&Boolean(memberChallenge)]]){
+      node("register-"+name).hidden=!enabled;node("register-"+name).disabled=!enabled;
+    }
+    node("member-mode").hidden=memberMode;node("new-mode").hidden=!memberMode;
+    node("member-edit").hidden=!memberChallenge;
+    node("register-submit").textContent=memberMode?(memberChallenge?"تأیید و ادامه همان رزرو":"بررسی مشخصات و دریافت کد"):"ثبت‌نام و ادامه رزرو";
+  };
+  node("member-mode").onclick=()=>{if(busy)return;memberMode=true;memberChallenge="";memberStep();};
+  node("new-mode").onclick=()=>{if(busy)return;memberMode=false;memberChallenge="";memberStep();};
+  node("member-edit").onclick=()=>{if(busy)return;memberChallenge="";registration.elements.namedItem("member_code").value="";memberStep();};
   const selectedSeats=new Set();
   const query=typeof URLSearchParams!=="undefined"?new URLSearchParams(window.location?.search||""):null;
   let selectedShowId=query?.get("show")||null;
@@ -50,7 +73,7 @@
     node("kind").parentElement.hidden=true;
     document.getElementById("booking-title").textContent=event.detail.title;
     selectedShowId=null;selectedSeats.clear();form.hidden=true;registration.hidden=true;
-    node("list").replaceChildren();selectStep(false);
+    clearTicketUrls();node("list").replaceChildren();selectStep(false);
     node("load").textContent=sectionKind==="cinema"?"رزروهای من در سینما":"انتخاب زمان و رزرو "+labels[sectionKind];
     message(sectionKind==="cinema"?"فیلم و سانس دلخواه را انتخاب کن.":"برای انتخاب زمان و مشاهده رزروهای همین بخش، ادامه بده.");
   });
@@ -150,13 +173,36 @@
     }));
   };
   const text=(parent,tag,value)=>{const child=document.createElement(tag);child.textContent=value;parent.append(child);return child;};
+  const ticketUrls=new Set();
+  const clearTicketUrls=()=>{for(const url of ticketUrls)URL.revokeObjectURL(url);ticketUrls.clear();};
+  const renderTicket=(card,ticket)=>{
+    const panel=document.createElement("section");panel.className="cinema-ticket";
+    panel.classList.add(ticket.entry_allowed===true?"cinema-ticket-ready":"cinema-ticket-blocked");
+    panel.setAttribute("aria-label","بلیت سینما");
+    const rows=["بلیت سینما جهش",ticket.status_label,"کد بلیت: "+ticket.tracking_code,
+      "کد درخواست: "+ticket.request_code,"فیلم: "+ticket.film_title,"سالن: "+ticket.hall_name,
+      "شروع: "+date(ticket.starts_at),"پایان: "+date(ticket.ends_at),
+      "تعداد: "+number(ticket.quantity),"صندلی‌ها: "+(ticket.seat_codes?.join("، ")||"بدون شماره؛ پذیرش بر اساس ظرفیت"),
+      "ورود ثبت‌شده: "+number(ticket.admitted_count)+" · باقی‌مانده: "+number(ticket.remaining_count),
+      "آخرین بررسی: "+date(ticket.checked_at),ticket.notice];
+    rows.forEach((value,index)=>text(panel,index===0?"strong":"p",value));
+    if(ticket.entry_allowed===true){
+      const escape=value=>String(value).replace(/[&<>"']/g,character=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
+      const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><title>بلیت سینما جهش</title><style>body{font-family:Tahoma,sans-serif;max-width:520px;margin:24px auto;padding:24px;border:2px solid #22754a;border-radius:18px;line-height:1.9;overflow-wrap:anywhere}h1{font-size:22px}p{margin:8px 0}</style></head><body><h1>'+escape(rows[0])+'</h1>'+rows.slice(1).map(value=>"<p>"+escape(value)+"</p>").join("")+"</body></html>";
+      const url=URL.createObjectURL(new Blob([html],{type:"text/html;charset=utf-8"}));ticketUrls.add(url);
+      const download=text(panel,"a","دریافت بلیت برای نگهداری یا چاپ");download.href=url;
+      download.download="jahesh-cinema-"+String(ticket.tracking_code).replace(/[^A-Za-z0-9-]/g,"")+".html";
+    }
+    card.append(panel);
+  };
   const render=items=>{
     if(!Array.isArray(items))throw new Error("فهرست رزرو معتبر نیست.");
+    clearTicketUrls();
     node("list").replaceChildren(...items.filter(item=>!sectionKind||item.kind===sectionKind).map(item=>{
       const card=document.createElement("article");card.className="reservation-result";
       if(item.reservation_confirmed===true&&Number.isSafeInteger(item.reservation_reference))card.classList.add("reservation-confirmed");
       text(card,"strong",labels[item.kind]+" · "+item.status_label);
-      text(card,"p","کد پیگیری: "+item.code+(item.reservation_confirmed?" · شماره رزرو رسمی: "+item.reservation_reference:" · هنوز قطعی نشده"));
+      text(card,"p","کد پیگیری: "+item.code+(item.ticket?.status==="cancelled"?" · رزرو رسمی فعال نیست":item.reservation_confirmed?" · شماره رزرو رسمی: "+item.reservation_reference:" · هنوز قطعی نشده"));
       const detail=item.details||{};
       text(card,"p",detail.device_name||detail.resource_name||detail.film_title||"");
       if(detail.starts_at)text(card,"p",date(detail.starts_at)+(detail.minutes?" · "+number(detail.minutes)+" دقیقه":""));
@@ -180,6 +226,7 @@
         }
       }
       for(const receipt of item.receipts)text(card,"p","رسید "+receipt.reference+": "+({pending:"منتظر بررسی",confirmed:"تأیید اپراتور",rejected:"ردشده"}[receipt.status]||receipt.status));
+      if(item.kind==="cinema"&&item.ticket)renderTicket(card,item.ticket);
       return card;
     }));sync();
   };
@@ -210,10 +257,10 @@
   document.addEventListener("jahesh-before-account-change",event=>{
     if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را بررسی کن؛ تغییر حساب فعلاً ممکن نیست.");}
   });
-  document.addEventListener("jahesh-web-session-ready",()=>{catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();node("list").replaceChildren();});
+  document.addEventListener("jahesh-web-session-ready",()=>{clearTicketUrls();catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();node("list").replaceChildren();});
   document.addEventListener("jahesh-resume-service",()=>{if(selectedShowId&&!busy&&!pending)node("load").onclick();});
   document.addEventListener("jahesh-web-session-ended",()=>{
-    catalog=null;form.hidden=true;node("list").replaceChildren();node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
+    clearTicketUrls();catalog=null;form.hidden=true;node("list").replaceChildren();node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
   });
   document.addEventListener("jahesh-cinema-selected",event=>{
     if(busy||pending){message("ابتدا نتیجه عملیات قبلی را بررسی کن.");return;}
@@ -226,14 +273,29 @@
   });
   registration.onsubmit=async event=>{
     event.preventDefault();if(busy)return;
-    const values=new FormData(registration),button=registration.querySelector("button");
+    const values=new FormData(registration),button=node("register-submit");
     busy=true;button.disabled=true;sync();
     try{
-      await call("register",{registration:{first_name:values.get("first_name"),last_name:values.get("last_name"),father_name:values.get("father_name"),phone:values.get("phone"),consent:values.get("consent")==="on"}});
+      if(memberMode){
+        if(!memberChallenge){
+          const result=await call("member-link/start",{details:{national_id:values.get("member_national_id"),birth_date:values.get("member_birth_date"),phone:values.get("member_phone"),consent:values.get("member_consent")==="on"}});
+          if(!/^[A-Za-z0-9_-]{43}$/.test(result.challenge))throw new Error("پاسخ بررسی معتبر نیست.");
+          memberChallenge=result.challenge;memberStep();message(result.message);return;
+        }
+        await call("member-link/finish",{proof:{challenge:memberChallenge,code:values.get("member_code")}});
+        memberChallenge="";registration.elements.namedItem("member_code").value="";memberStep();
+      }else{
+        await call("register",{registration:{first_name:values.get("first_name"),last_name:values.get("last_name"),father_name:values.get("father_name"),phone:values.get("phone"),consent:values.get("consent")==="on"}});
+      }
       registration.hidden=true;
       catalog=await call("catalog");form.hidden=false;selectResources();await refresh();
       message("ثبت‌نام انجام شد؛ زمان و خدمت دلخواه را انتخاب کن. ثبت رسید به‌تنهایی تأیید واریز نیست.");
-    }catch(error){message(error.message);}finally{busy=false;button.disabled=false;sync();}
+    }catch(error){
+      if(error.status===409&&!memberMode){
+        memberMode=true;memberChallenge="";registration.elements.namedItem("member_phone").value=values.get("phone")||"";memberStep();
+      }
+      message(error.message);
+    }finally{busy=false;button.disabled=false;sync();}
   };
   node("reconcile").onclick=async()=>{
     if(!pending||busy)return;busy=true;sync();
@@ -306,6 +368,7 @@
     node("library-loans").replaceChildren();node("library-status").textContent="اطلاعات فقط برای صاحب حساب معتبر و پرونده متصل کتابخانه نمایش داده می‌شود؛ ورود وب هم قابل استفاده است.";
   });
   document.getElementById("service-dialog")?.addEventListener("close",()=>{
+    clearTicketUrls();
     libraryRevision++;node("library-loans").replaceChildren();node("library-status").textContent="";
     catalogRevision++;
   });

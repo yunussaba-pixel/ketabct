@@ -75,7 +75,7 @@
     try{
       response=await fetch(endpoint.slice(0,-8)+(raw?"":"/web")+path,{method:"POST",headers,
         body:JSON.stringify(body),credentials:"omit",redirect:"error",cache:"no-store",
-        ...(typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(path==="/member-link/start"?45000:20000)}:{})});
+        ...(typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(path.endsWith("/member-link/start")?45000:20000)}:{})});
       data=await response.json();
     }catch{throw Object.assign(new Error("ارتباط قطع شد؛ نتیجه ممکن است ثبت شده باشد. ابتدا پیگیری کن؛ دوباره پرداخت نکن."),{unknown:true});}
     if(!response.ok){
@@ -146,7 +146,14 @@
       try{
         const result=await request("/"+operation,payload,{account:true});
         acceptSession(result);
-      }catch(error){message(error.message+(operation!=="login"&&error.unknown?" اگر حساب ساخته شده، از فرم ورود استفاده کن.":""));}
+      }catch(error){
+        if(operation==="register"&&error.status===409){
+          node("register-details").open=false;node("member-details").open=true;
+          node("member-start-form").elements.namedItem("phone").value=values.get("phone")||"";
+          render();
+        }
+        message(error.message+(operation!=="login"&&error.unknown?" اگر حساب ساخته شده، از فرم ورود استفاده کن.":""));
+      }
       finally{busy=false;form.elements.namedItem("password").value="";form.querySelector('button[type="submit"]').disabled=false;}
     };
   }
