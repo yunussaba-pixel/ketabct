@@ -3,7 +3,10 @@
   const container=document.querySelector('[data-view="booking"]');
   if(!container)return;
   container.innerHTML=`<div class="page-heading"><span>رزرو خدمات مرکز</span><h1 id="booking-title">بازیکده، کافه و سینما</h1><button id="reservation-back" class="secondary" type="button" hidden>بازگشت به انتخاب فیلم و سانس</button></div>
-    <section class="reservation-panel"><button id="reservation-load" class="primary" type="button">به‌روزرسانی خدمات، رزروها و بلیت‌های من</button>
+    <section class="reservation-panel"><button id="reservation-load" class="primary" type="button">انتخاب خدمت و رزرو جدید</button>
+    <button id="reservation-track" class="secondary" type="button">پیگیری رزروها و بلیت‌های من</button>
+    <label><input id="reservation-auto-track" type="checkbox"> پیگیری خودکار هر ۳۰ ثانیه تا وقتی این بخش باز است</label>
+    <p id="reservation-tracking-status" role="status" aria-live="polite"></p>
     <p id="reservation-status" role="status" aria-live="polite" tabindex="-1">سانس دلخواه را انتخاب کن.</p>
     <form id="reservation-form" hidden><label>بخش<select id="reservation-kind"><option value="gamenet">بازیکده</option><option value="cafe">کافه</option><option value="cinema">سینما</option></select></label>
       <label>دستگاه، میز یا سانس<select id="reservation-resource" required></select></label>
@@ -43,7 +46,25 @@
     <button id="reservation-member-edit" type="button" class="secondary" hidden>اصلاح مشخصات / دریافت کد تازه</button>
     <button id="reservation-register-submit" type="submit" class="primary">ثبت‌نام و ادامه رزرو</button>`;
   container.insertBefore(registration,container.querySelector(".reservation-panel"));
-  let catalog=null,busy=false,pending=null;
+  let catalog=null,busy=false,pending=null,listRevision=0;
+  let receiptForms=new Map(),autoTimer=null,autoDelay=30000,hasList=false,viewActive=container.hidden===false;
+  const stopAuto=()=>{if(autoTimer!==null)clearTimeout(autoTimer);autoTimer=null;};
+  const editingReservation=()=>node("list").contains?.(document.activeElement)||form.contains?.(document.activeElement);
+  const canAuto=()=>node("auto-track").checked&&hasList&&viewActive&&!document.hidden&&(typeof navigator==="undefined"||navigator.onLine!==false);
+  const scheduleAuto=()=>{
+    stopAuto();if(!canAuto())return;
+    autoTimer=setTimeout(async()=>{
+      autoTimer=null;if(!canAuto())return;
+      if(busy||pending||editingReservation()){scheduleAuto();return;}
+      await node("track").onclick({automatic:true});
+    },autoDelay);
+  };
+  const invalidateList=()=>{listRevision++;hasList=false;autoDelay=30000;stopAuto();receiptForms.clear();clearTicketUrls();node("list").replaceChildren();node("tracking-status").textContent="";};
+  node("auto-track").addEventListener("change",()=>{autoDelay=30000;scheduleAuto();});
+  document.addEventListener("visibilitychange",scheduleAuto);
+  window.addEventListener?.("offline",stopAuto);
+  window.addEventListener?.("online",scheduleAuto);
+  document.addEventListener("jahesh-view-changed",event=>{viewActive=event.detail?.view==="booking";scheduleAuto();});
   let memberMode=false,memberChallenge="";
   const memberStep=()=>{
     for(const [name,enabled] of [["new",!memberMode],["member",memberMode&&!memberChallenge],["proof",memberMode&&Boolean(memberChallenge)]]){
@@ -63,7 +84,7 @@
   if(initialKind){sectionKind=initialKind;node("kind").value=initialKind;node("kind").parentElement.hidden=true;document.getElementById("booking-title").textContent=labels[initialKind];}
   const message=text=>{status.textContent=text;};
   const reveal=()=>{const target=registration.hidden?status:registration;target.scrollIntoView?.({behavior:"smooth",block:"start"});if(registration.hidden)status.focus?.({preventScroll:true});};
-  const selectStep=selected=>{container.classList.toggle("booking-selected",selected);node("back").hidden=!selected;node("load").hidden=selected;};
+  const selectStep=selected=>{container.classList.toggle("booking-selected",selected);node("back").hidden=!selected;node("load").hidden=selected||sectionKind==="cinema";};
   node("back").onclick=()=>{if(busy||pending)return;selectStep(false);registration.hidden=true;form.hidden=true;};
   document.addEventListener("jahesh-program-open",()=>{if(!busy&&!pending)selectStep(false);});
   document.addEventListener("jahesh-before-service-change",event=>{if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را پیگیری کن.");}});
@@ -73,8 +94,10 @@
     node("kind").parentElement.hidden=true;
     document.getElementById("booking-title").textContent=event.detail.title;
     selectedShowId=null;selectedSeats.clear();form.hidden=true;registration.hidden=true;
-    clearTicketUrls();node("list").replaceChildren();selectStep(false);
-    node("load").textContent=sectionKind==="cinema"?"رزروهای من در سینما":"انتخاب زمان و رزرو "+labels[sectionKind];
+    invalidateList();selectStep(false);
+    node("load").hidden=sectionKind==="cinema";
+    node("load").textContent="انتخاب زمان و رزرو "+labels[sectionKind];
+    node("track").textContent="پیگیری رزروها و بلیت‌های من در "+labels[sectionKind];
     message(sectionKind==="cinema"?"فیلم و سانس دلخواه را انتخاب کن.":"برای انتخاب زمان و مشاهده رزروهای همین بخش، ادامه بده.");
   });
   const identity=()=>{
@@ -99,6 +122,15 @@
     return data;
   };
   const date=value=>new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeStyle:"short",timeZone:catalog?.timezone||"Asia/Tehran"}).format(new Date(value));
+  const libraryDate=value=>{
+    const raw=String(value||"");
+    const normalized=raw.replace(/[۰-۹]/g,digit=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
+    const parts=normalized.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if(!parts)return raw;
+    if(Number(parts[1])<1700)return parts.slice(1).map(part=>new Intl.NumberFormat("fa-IR",{useGrouping:false}).format(Number(part))).join("/");
+    const parsed=new Date(normalized+"T12:00:00Z");
+    return Number.isFinite(parsed.getTime())?new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeZone:"UTC"}).format(parsed):raw;
+  };
   const resource=()=>catalog?.resources.find(row=>row.kind===node("kind").value&&String(row.id)===node("resource").value);
   let availabilityRevision=0;
   const clearAvailability=()=>{
@@ -128,6 +160,7 @@
   const sync=()=>{
     form.querySelectorAll("input,select,button").forEach(control=>{control.disabled=busy||Boolean(pending)||control.dataset.seatUnavailable==="true";});
     node("load").disabled=busy;
+    node("track").disabled=busy||Boolean(pending);
     node("reconcile").hidden=!pending;node("retry").hidden=!pending;
     node("reconcile").disabled=busy;node("retry").disabled=busy;
     container.querySelectorAll("[data-reservation-action]").forEach(button=>{button.disabled=busy||Boolean(pending);});
@@ -197,8 +230,15 @@
   };
   const render=items=>{
     if(!Array.isArray(items))throw new Error("فهرست رزرو معتبر نیست.");
+    const drafts=new Map(Array.from(receiptForms,([requestId,previous])=>[requestId,{
+      amountDue:previous.amountDue,
+      values:Object.fromEntries(["amount","payment_date","payment_time","reference"].map(name=>[name,previous.form.elements.namedItem(name).value])),
+      confirmed:previous.form.elements.namedItem("paid_confirmed").checked
+    }]));
+    receiptForms=new Map();
     clearTicketUrls();
-    node("list").replaceChildren(...items.filter(item=>!sectionKind||item.kind===sectionKind).map(item=>{
+    const visible=items.filter(item=>!sectionKind||item.kind===sectionKind);
+    node("list").replaceChildren(...visible.map(item=>{
       const card=document.createElement("article");card.className="reservation-result";
       if(item.reservation_confirmed===true&&Number.isSafeInteger(item.reservation_reference))card.classList.add("reservation-confirmed");
       text(card,"strong",labels[item.kind]+" · "+item.status_label);
@@ -214,8 +254,15 @@
         if(item.payment_authorized!==false&&item.amount>0&&!item.receipts.some(row=>["pending","confirmed"].includes(row.status))){
           text(card,"p",item.card_number?"کارت مرکز: "+item.card_number+" · "+item.card_holder:"شماره کارت مرکز تنظیم نشده؛ قبل از پرداخت با مرکز تماس بگیر.");
           const receipt=document.createElement("form");
-          receipt.innerHTML='<label>مبلغ واریزی (تومان)<input name="amount" type="number" required min="1" max="1000000000"></label><label>تاریخ واریز<input name="payment_date" type="date" required></label><label>ساعت دقیق واریز به وقت مرکز<input name="payment_time" type="time" required></label><label>شماره پیگیری واریز<input name="reference" minlength="3" maxlength="60" required></label><label><input type="checkbox" required> واریز را انجام داده‌ام؛ تأیید دریافت با اپراتور است.</label><button type="submit" class="secondary" data-reservation-action>ثبت اطلاعات رسید</button>';
+          receipt.innerHTML='<label>مبلغ واریزی (تومان)<input name="amount" type="number" required min="1" max="1000000000"></label><label>تاریخ واریز<input name="payment_date" type="date" required></label><label>ساعت دقیق واریز به وقت مرکز<input name="payment_time" type="time" required></label><label>شماره پیگیری واریز<input name="reference" minlength="3" maxlength="60" required></label><label><input name="paid_confirmed" type="checkbox" required> واریز را انجام داده‌ام؛ تأیید دریافت با اپراتور است.</label><button type="submit" class="secondary" data-reservation-action>ثبت اطلاعات رسید</button>';
           receipt.elements.namedItem("amount").value=item.amount;
+          const draft=drafts.get(item.id);
+          if(draft){
+            for(const [name,value] of Object.entries(draft.values))receipt.elements.namedItem(name).value=value;
+            receipt.elements.namedItem("paid_confirmed").checked=draft.confirmed&&draft.amountDue===item.amount;
+            if(draft.amountDue!==item.amount)text(card,"p","مبلغ لازم تغییر کرده است؛ مبلغ رسید و شرایط پرداخت را دوباره بررسی کن.");
+          }
+          receiptForms.set(item.id,{form:receipt,amountDue:item.amount});
           receipt.onsubmit=event=>{event.preventDefault();write(item.id+"/receipt",{receipt:{request_key:crypto.randomUUID(),amount:Number(receipt.elements.namedItem("amount").value),reference:receipt.elements.namedItem("reference").value.trim(),payment_date:receipt.elements.namedItem("payment_date").value,payment_time:receipt.elements.namedItem("payment_time").value}});};card.append(receipt);
           if(typeof jalaliPickerScan==="function")jalaliPickerScan(receipt);
         }
@@ -228,9 +275,33 @@
       for(const receipt of item.receipts)text(card,"p","رسید "+receipt.reference+": "+({pending:"منتظر بررسی",confirmed:"تأیید اپراتور",rejected:"ردشده"}[receipt.status]||receipt.status));
       if(item.kind==="cinema"&&item.ticket)renderTicket(card,item.ticket);
       return card;
-    }));sync();
+    }));
+    if(!visible.length)text(node("list"),"p",sectionKind?"در بخش "+labels[sectionKind]+" رزروی برای این حساب ثبت نشده است.":"رزروی برای این حساب ثبت نشده است.");
+    sync();
   };
-  const refresh=async()=>render((await call("list")).items);
+  const refresh=async(automatic=false)=>{
+    const revision=++listRevision,result=await call("list");
+    if(revision!==listRevision)return false;
+    if(automatic&&editingReservation()){node("tracking-status").textContent="تازه‌سازی تا پایان ویرایش فرم متوقف است.";return false;}
+    render(result.items);hasList=true;autoDelay=30000;scheduleAuto();return true;
+  };
+  node("track").onclick=async event=>{
+    if(busy||pending)return;
+    const automatic=event?.automatic===true;
+    stopAuto();
+    busy=true;sync();node("list").setAttribute("aria-busy","true");
+    node("tracking-status").textContent="در حال دریافت آخرین وضعیت رزروها و بلیت‌ها…";
+    const revision=listRevision;
+    try{
+      if(await refresh(automatic))node("tracking-status").textContent="آخرین بررسی: "+date(new Date())+"؛ وضعیت فعلی از مرکز دریافت شد.";
+    }catch(error){
+      if(listRevision===revision+1){
+        autoDelay=automatic?Math.min(autoDelay*2,120000):30000;
+        if(error.status===401||error.status===403){invalidateList();node("tracking-status").textContent=error.message+" برای ادامه، ورود و دسترسی حساب را دوباره بررسی کن.";}
+        else node("tracking-status").textContent=error.message+" وضعیت تازه دریافت نشد؛ اطلاعات قبلی ممکن است تغییر کرده باشد. می‌توانی دوباره پیگیری کنی.";
+      }
+    }finally{busy=false;node("list").setAttribute("aria-busy","false");sync();scheduleAuto();}
+  };
   async function write(path,payload){
     if(busy||pending)return;
     try{identity();}catch(error){message(error.message);return;}
@@ -257,10 +328,10 @@
   document.addEventListener("jahesh-before-account-change",event=>{
     if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را بررسی کن؛ تغییر حساب فعلاً ممکن نیست.");}
   });
-  document.addEventListener("jahesh-web-session-ready",()=>{clearTicketUrls();catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();node("list").replaceChildren();});
+  document.addEventListener("jahesh-web-session-ready",()=>{invalidateList();catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();});
   document.addEventListener("jahesh-resume-service",()=>{if(selectedShowId&&!busy&&!pending)node("load").onclick();});
   document.addEventListener("jahesh-web-session-ended",()=>{
-    clearTicketUrls();catalog=null;form.hidden=true;node("list").replaceChildren();node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
+    invalidateList();catalog=null;form.hidden=true;node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
   });
   document.addEventListener("jahesh-cinema-selected",event=>{
     if(busy||pending){message("ابتدا نتیجه عملیات قبلی را بررسی کن.");return;}
@@ -380,19 +451,33 @@
     try{
       const result=await call("library/status");if(revision!==libraryRevision)return;
       const membership={active:"فعال",inactive:"غیرفعال",unknown:"نامشخص"};
-      const expiry=result.membership_ends_on&&Number.isFinite(Date.parse(result.membership_ends_on+"T12:00:00Z"))?new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(result.membership_ends_on+"T12:00:00Z")):"ثبت نشده";
+      const expiry=result.membership_ends_on?libraryDate(result.membership_ends_on):"ثبت نشده";
       const captured=result.captured_at&&Number.isFinite(Date.parse(result.captured_at))?" · آخرین دریافت از شهرداری: "+date(result.captured_at):"";
       node("library-status").textContent="عضویت: "+(membership[result.membership_status]||"نامشخص")+" · اعتبار تا: "+expiry+captured+" · "+result.notice;
+      const renewals=Array.isArray(result.renewals)?result.renewals:[];
+      for(const renewal of renewals){
+        const progress=document.createElement("article");progress.className="reservation-result";
+        text(progress,"h4",renewal.renewal_confirmed?"تمدید تأیید شد":"پیگیری تمدید کتاب");
+        text(progress,"p",renewal.public_reply||"در انتظار بررسی رسمی");
+        text(progress,"p","بارکد: "+renewal.barcode+" · کد پیگیری: "+renewal.request_key);
+        if(renewal.renewal_confirmed&&renewal.due_date)text(progress,"p","سررسید تازه: "+libraryDate(renewal.due_date));
+        node("library-loans").append(progress);
+      }
       if(!result.fresh)return;
       if(!result.loans.length)text(node("library-loans"),"p","در آخرین اطلاعات معتبر، امانتی ثبت نشده است.");
       for(const loan of result.loans){
         const card=document.createElement("article");card.className="reservation-result";
         text(card,"h4",loan.book||"کتاب");
-        if(loan.due_date)text(card,"p","سررسید: "+new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(loan.due_date+"T12:00:00Z")));
+        if(loan.due_date)text(card,"p","سررسید: "+libraryDate(loan.due_date));
         if(loan.overdue_days)text(card,"p",number(loan.overdue_days)+" روز دیرکرد");
         if(loan.barcode&&result.membership_status==="active"){
+          const pending=renewals.find(renewal=>renewal.barcode===loan.barcode&&["pending","claimed"].includes(renewal.status));
+          if(pending){
+            text(card,"p","درخواست این کتاب در صف است؛ برای دیدن نتیجه، وضعیت کتابخانه را تازه کن.");
+            node("library-loans").append(card);continue;
+          }
           const label=document.createElement("label"),consent=document.createElement("input");consent.type="checkbox";
-          label.append(consent,document.createTextNode("درخواست بررسی تمدید توسط مسئول کتابخانه را تأیید می‌کنم."));card.append(label);
+          label.append(consent,document.createTextNode("ثبت درخواست تمدید همین کتاب در صف شهرداری را تأیید می‌کنم."));card.append(label);
           const button=document.createElement("button");button.type="button";button.className="secondary";button.textContent="درخواست تمدید";card.append(button);
           const notice=text(card,"p","");notice.setAttribute("role","status");
           const signature=loan.barcode+":"+loan.due_date;
@@ -404,7 +489,8 @@
             try{
               const response=await call("library/renew-request",{request_key:renewalKeys.get(signature),barcode:loan.barcode,confirm_submission:true});
               if(revision!==libraryRevision)return;
-              notice.textContent="درخواست برای مسئول کتابخانه ثبت شد؛ تمدید هنوز تأیید نشده است. کد پیگیری: "+response.request_key;
+              notice.textContent=response.renewal_confirmed?"تمدید رسمی تأیید شد. کد پیگیری: "+response.request_key:
+                "درخواست در صف عملیات شهرداری ثبت شد؛ تمدید هنوز تأیید نشده است. کد پیگیری: "+response.request_key;
               button.textContent="درخواست ثبت شد";
             }catch(error){if(revision===libraryRevision){notice.textContent=error.message;button.textContent="تکرار امن همان درخواست";button.disabled=false;}}
             finally{libraryBusy=false;}

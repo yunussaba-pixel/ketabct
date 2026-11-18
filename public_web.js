@@ -5,6 +5,7 @@
   const signed=()=>window.Eitaa?.WebApp?.initData||"";
   let token="",expires="",busy=false,authMode=null,accountVisible=false;
   let memberChallenge="";
+  let memberLogin=false;
   try{
     const saved=JSON.parse(sessionStorage.getItem("jahesh-public-session")||"null");
     if(saved&&/^[A-Za-z0-9_-]{43}$/.test(saved.token)&&Date.parse(saved.expires_at)>Date.now()){
@@ -18,6 +19,7 @@
     <form id="web-login-form"><label>نام کاربری<input name="username" autocomplete="username" minlength="3" maxlength="64" required dir="ltr"></label>
     <label>رمز عبور<input name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required></label>
     <button type="submit" class="primary">ورود</button></form>
+    <button id="web-sms-login" type="button" class="secondary">ورود با کد پیامک؛ بدون نیاز به رمز</button>
     <details id="web-register-details"><summary>ساخت حساب جدید</summary>
     <form id="web-register-form"><label>نام<input name="first_name" autocomplete="given-name" maxlength="80" required></label>
     <label>نام خانوادگی<input name="last_name" autocomplete="family-name" maxlength="80" required></label>
@@ -29,14 +31,14 @@
     <button type="submit" class="primary">ساخت حساب و ادامه خدمات</button></form></details>
     <details id="web-member-details"><summary>قبلاً عضو مرکز هستم؛ اتصال خودکار پرونده</summary>
     <p>کد ملی، تاریخ تولد و همراه با پرونده تطبیق داده می‌شوند؛ با تأیید همراه ثبت‌شده، همان پرونده خودکار متصل می‌شود. کد دعوت لازم نیست.</p>
-    <form id="web-member-start-form"><label>کد ملی<input name="national_id" inputmode="numeric" minlength="10" maxlength="10" required autocomplete="off"></label>
+    <form id="web-member-start-form"><label>نوع ورود<select name="purpose" id="web-member-purpose"><option value="link">اولین ورود؛ اتصال پرونده به حساب وب</option><option value="login">قبلاً حساب وب ساخته‌ام؛ ورود با پیامک</option></select></label><label>کد ملی<input name="national_id" inputmode="numeric" minlength="10" maxlength="10" required autocomplete="off"></label>
     <label>تاریخ تولد (شمسی)<input name="birth_date" type="date" required autocomplete="bday"></label>
     <label>همراه ثبت‌شده در پرونده<input name="phone" type="tel" inputmode="numeric" maxlength="20" required autocomplete="tel"></label>
     <label><input name="consent" type="checkbox" required> تطبیق مشخصات و ارسال کد تأیید به همراه خودم را می‌پذیرم.</label>
     <button type="submit" class="primary">بررسی مشخصات و دریافت کد تأیید</button></form>
     <form id="web-member-finish-form" hidden><label>کد پیامک‌شده<input name="code" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" required></label>
-    <label>نام کاربری دلخواه (انگلیسی)<input name="username" autocomplete="username" minlength="3" maxlength="64" required dir="ltr"></label>
-    <label>رمز عبور (حداقل ۱۲ نویسه)<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+    <div id="web-member-setup"><label>نام کاربری دلخواه (انگلیسی)<input name="username" autocomplete="username" minlength="3" maxlength="64" required dir="ltr"></label>
+    <label>رمز عبور (حداقل ۱۲ نویسه)<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label></div>
     <button type="submit" class="primary">تأیید همراه و اتصال خودکار</button></form>
     <button id="web-member-restart" type="button" class="secondary" hidden>اصلاح مشخصات / درخواست کد تازه</button></details>
     <button id="web-logout" type="button" class="secondary" hidden>خروج از حساب</button>
@@ -48,6 +50,7 @@
     const embedded=authMode!=="web"&&Boolean(signed());
     node("login-form").hidden=embedded||Boolean(token)||Boolean(node("register-details").open)||Boolean(node("member-details").open);node("register-details").hidden=embedded||Boolean(token);node("member-details").hidden=embedded||Boolean(token);
     node("logout").hidden=!token;node("account-toggle").hidden=accountVisible||embedded;
+    node("sms-login").hidden=embedded||Boolean(token);
     node("account-toggle").textContent=token?"حساب من / خروج":"ورود / ثبت‌نام";
     node("account-intro").textContent=embedded?"ورود شما از حساب همین برنامک انجام می‌شود؛ برای استفاده از خدمات، بخش دلخواه را انتخاب کن.":"برای ادامه خدمات وارد حساب خودت شو یا ثبت‌نام کن.";
     const connection=document.getElementById("eitaa-connection-panel");if(connection)connection.hidden=!embedded||!accountVisible;
@@ -96,6 +99,11 @@
     document.dispatchEvent(new CustomEvent("jahesh-web-session-ready"));
     document.dispatchEvent(new CustomEvent("jahesh-account-return"));
   };
+  node("sms-login").onclick=()=>{
+    if(busy)return;
+    node("member-details").open=true;node("register-details").open=false;
+    node("member-purpose").value="login";render();
+  };
   node("member-restart").onclick=()=>{
     if(busy)return;
     memberChallenge="";node("member-finish-form").hidden=true;node("member-start-form").hidden=false;node("member-restart").hidden=true;
@@ -109,7 +117,9 @@
       event.preventDefault();if(busy||!canChange())return;
       if(stage==="finish"&&!memberChallenge){message("ابتدا مشخصات پرونده را بررسی کن.");return;}
       const values=new FormData(form);
-      const payload=stage==="start"?{national_id:values.get("national_id"),birth_date:values.get("birth_date"),phone:values.get("phone"),consent:values.get("consent")==="on"}:
+      if(stage==="start")memberLogin=values.get("purpose")==="login";
+      const payload=stage==="start"?{national_id:values.get("national_id"),birth_date:values.get("birth_date"),phone:values.get("phone"),consent:values.get("consent")==="on",purpose:memberLogin?"login":"link"}:
+        memberLogin?{challenge:memberChallenge,code:values.get("code")}:
         {challenge:memberChallenge,code:values.get("code"),username:values.get("username"),password:values.get("password")};
       busy=true;form.querySelector('button[type="submit"]').disabled=true;
       message(stage==="start"?"در حال بررسی و ارسال کد…":"در حال اتصال پرونده…");
@@ -119,10 +129,12 @@
           const result=await request("/member-link/start",payload,{account:true});
           if(!/^[A-Za-z0-9_-]{43}$/.test(result.challenge))throw new Error("پاسخ بررسی معتبر نیست.");
           memberChallenge=result.challenge;node("member-start-form").hidden=true;node("member-finish-form").hidden=false;
+          node("member-setup").hidden=memberLogin;
+          for(const name of ["username","password"])node("member-finish-form").elements.namedItem(name).required=!memberLogin;
           node("member-restart").hidden=false;
           message(result.message);
         }else{
-          const result=await request("/member-link/finish",payload,{account:true});
+          const result=await request(memberLogin?"/member-link/login":"/member-link/finish",payload,{account:true});
           acceptSession(result);
         }
       }catch(error){
