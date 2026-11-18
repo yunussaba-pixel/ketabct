@@ -327,9 +327,10 @@
   document.addEventListener("jahesh-before-account-change",event=>{
     if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را بررسی کن؛ تغییر حساب فعلاً ممکن نیست.");}
   });
-  document.addEventListener("jahesh-web-session-ready",()=>{invalidateList();catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();});
+  document.addEventListener("jahesh-web-session-ready",()=>{stopRenewalTracking();invalidateList();catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();});
   document.addEventListener("jahesh-resume-service",()=>{if(selectedShowId&&!busy&&!pending)node("load").onclick();});
   document.addEventListener("jahesh-web-session-ended",()=>{
+    stopRenewalTracking();
     invalidateList();catalog=null;form.hidden=true;node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
   });
   document.addEventListener("jahesh-cinema-selected",event=>{
@@ -395,6 +396,33 @@
   libraryPanel.innerHTML='<h3>کتابخانه شهدای محمودآباد</h3><form id="reservation-library-search"><label>عنوان کتاب، نویسنده، موضوع یا شابک<input id="reservation-library-query" type="search" maxlength="200" autocomplete="off"></label><button id="reservation-library-search-button" type="submit" class="secondary">جست‌وجوی کتاب‌های این کتابخانه</button></form><p id="reservation-library-catalog-status" role="status" aria-live="polite"></p><div id="reservation-library-books"></div><button id="reservation-library-more" type="button" class="secondary" hidden>نتایج بیشتر</button><h3>عضویت و امانت‌های من</h3><button id="reservation-library-load" type="button" class="secondary">دریافت وضعیت من</button><p id="reservation-library-status" role="status" aria-live="polite"></p><div id="reservation-library-loans"></div>';
   document.getElementById("service-dialog")?.append(libraryPanel);
   let libraryRevision=0,libraryBusy=false;
+  const renewalTimers=new Map();
+  const stopRenewalTracking=()=>{for(const timer of renewalTimers.values())clearTimeout(timer);renewalTimers.clear();};
+  const watchRenewal=(renewal,target,revision,attempt=0)=>{
+    const requestKey=renewal.request_key;
+    if(!requestKey||revision!==libraryRevision)return;
+    const previous=renewalTimers.get(requestKey);if(previous!==undefined)clearTimeout(previous);
+    renewalTimers.delete(requestKey);
+    if(!["pending","claimed"].includes(renewal.status)||attempt>=20)return;
+    renewalTimers.set(requestKey,setTimeout(async()=>{
+      renewalTimers.delete(requestKey);
+      if(revision!==libraryRevision||libraryPanel.hidden)return;
+      if(document.hidden||(typeof navigator!=="undefined"&&navigator.onLine===false)){
+        watchRenewal(renewal,target,revision,attempt);return;
+      }
+      try{
+        const result=await call("library/renewals/"+encodeURIComponent(requestKey)+"/status");
+        if(revision!==libraryRevision)return;
+        target.textContent=(result.public_reply||"تمدید هنوز تأیید نشده است.")+" · کد پیگیری: "+requestKey;
+        if(result.renewal_confirmed&&result.due_date)target.textContent+=" · سررسید تازه: "+libraryDate(result.due_date);
+        watchRenewal(result,target,revision,attempt+1);
+      }catch(error){
+        if(revision!==libraryRevision)return;
+        target.textContent="پیگیری نتیجه ممکن نشد؛ تمدید دوباره درخواست نکن. "+error.message;
+        if(error.status!==401&&error.status!==403&&error.status!==404)watchRenewal(renewal,target,revision,attempt+1);
+      }
+    },15000));
+  };
   let catalogRevision=0,librarySearchBusy=false,librarySearchOffset=0,librarySearchQuery="";
   const searchBooks=async(more=false)=>{
     if(librarySearchBusy)return;
@@ -431,6 +459,7 @@
   node("library-more").onclick=()=>searchBooks(true);
   const renewalKeys=new Map();
   document.addEventListener("jahesh-service-open",event=>{
+    stopRenewalTracking();
     libraryRevision++;libraryPanel.hidden=event.detail?.service!=="library";
     catalogRevision++;node("library-books").replaceChildren();node("library-more").hidden=true;
     node("library-catalog-status").textContent="جست‌وجوی کتاب بدون ورود هم ممکن است؛ فقط موجودی گزارش‌شده شهدای محمودآباد نمایش داده می‌شود.";
@@ -438,12 +467,14 @@
     node("library-loans").replaceChildren();node("library-status").textContent="اطلاعات فقط برای صاحب حساب معتبر و پرونده متصل کتابخانه نمایش داده می‌شود؛ ورود وب هم قابل استفاده است.";
   });
   document.getElementById("service-dialog")?.addEventListener("close",()=>{
+    stopRenewalTracking();
     clearTicketUrls();
     libraryRevision++;node("library-loans").replaceChildren();node("library-status").textContent="";
     catalogRevision++;
   });
   node("library-load").onclick=async()=>{
     if(libraryBusy)return;
+    stopRenewalTracking();
     libraryBusy=true;node("library-load").disabled=true;
     const revision=++libraryRevision;
     node("library-loans").replaceChildren();node("library-status").textContent="در حال دریافت اطلاعات کتابخانه…";
@@ -457,7 +488,9 @@
       for(const renewal of renewals){
         const progress=document.createElement("article");progress.className="reservation-result";
         text(progress,"h4",renewal.renewal_confirmed?"تمدید تأیید شد":"پیگیری تمدید کتاب");
-        text(progress,"p",renewal.public_reply||"در انتظار بررسی رسمی");
+        const progressNotice=text(progress,"p",renewal.public_reply||"در انتظار بررسی رسمی");
+        progressNotice.setAttribute("role","status");
+        watchRenewal(renewal,progressNotice,revision);
         text(progress,"p","بارکد: "+renewal.barcode+" · کد پیگیری: "+renewal.request_key);
         if(renewal.renewal_confirmed&&renewal.due_date)text(progress,"p","سررسید تازه: "+libraryDate(renewal.due_date));
         node("library-loans").append(progress);
@@ -491,6 +524,7 @@
               notice.textContent=response.renewal_confirmed?"تمدید رسمی تأیید شد. کد پیگیری: "+response.request_key:
                 "درخواست در صف عملیات شهرداری ثبت شد؛ تمدید هنوز تأیید نشده است. کد پیگیری: "+response.request_key;
               button.textContent="درخواست ثبت شد";
+              watchRenewal({...response,status:response.status||"pending"},notice,revision);
             }catch(error){if(revision===libraryRevision){notice.textContent=error.message;button.textContent="تکرار امن همان درخواست";button.disabled=false;}}
             finally{libraryBusy=false;}
           };
