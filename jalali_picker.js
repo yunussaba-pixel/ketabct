@@ -173,6 +173,13 @@ function jalaliPickerEnhance(input){
     if(view.year<1200||view.year>1599)view=calendarSolarParts(calendarToday());
     message.textContent=endOfDay&&input.value==="24:00"?"پایان روز (۲۴:۰۰) انتخاب شده است؛ انتخاب ساعت دیگر این مقدار را عوض می‌کند.":timeOnly?"ساعت و دقیقه را انتخاب کنید.":"روز، ماه و سال را انتخاب کنید؛ تاریخ در فرم به‌صورت شمسی نمایش داده می‌شود.";
     toggle.setAttribute("aria-expanded","true");draw();clock.sync();
+    position();
+    if(typeof window==="undefined"||window.innerWidth>540){
+      if(timeOnly)clock.box.querySelector("select").focus({preventScroll:true});else dateText.focus({preventScroll:true});
+    }
+  }
+  function position(){
+    if(panel.hidden)return;
     if(typeof window!=="undefined"&&window.innerWidth>540){
       const bounds=wrapper.getBoundingClientRect(),below=window.innerHeight-bounds.bottom,above=bounds.top;
       const upwards=below<panel.scrollHeight&&above>below;
@@ -186,7 +193,6 @@ function jalaliPickerEnhance(input){
     }else if(typeof window!=="undefined"){
       for(const property of ["position","right","left","top","bottom","maxHeight"])panel.style[property]="";
     }
-    if(timeOnly)clock.box.querySelector("select").focus({preventScroll:true});else dateText.focus({preventScroll:true});
   }
   toggle.onclick=()=>{if(panel.hidden)open();else shut();};
   previous.onclick=()=>{if(view.year===1200&&view.month===1)return;if(view.month===1){view.year--;view.month=12;}else view.month--;draw();};
@@ -207,7 +213,7 @@ function jalaliPickerEnhance(input){
   input.addEventListener("change",sync);input.addEventListener("focus",sync);
   input.addEventListener("invalid",event=>{if(!nativeMode){event.preventDefault();open();message.textContent=input.validationMessage;}});
   wrapper.addEventListener("keydown",event=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();shut();toggle.focus();}});
-  jalaliPickerStates.set(input,{sync,shut,wrapper,panel});
+  jalaliPickerStates.set(input,{sync,shut,position,wrapper,panel});
   sync();
 }
 
@@ -232,5 +238,5 @@ document.addEventListener("DOMContentLoaded",()=>{
   document.addEventListener("calendar-close",()=>all().forEach(picker=>picker.shut()));
   document.addEventListener("pointerdown",event=>all().forEach(picker=>{if(!picker.panel.hidden&&!picker.wrapper.contains(event.target))picker.shut();}));
   document.addEventListener("reset",event=>{const form=event.target;setTimeout(()=>form.querySelectorAll('input[data-jalali-picker]').forEach(input=>jalaliPickerStates.get(input)?.shut()),0);});
-  if(typeof window!=="undefined")window.addEventListener("resize",()=>document.dispatchEvent(new Event("calendar-close")));
+  if(typeof window!=="undefined")window.addEventListener("resize",()=>all().forEach(picker=>picker.position()));
 });

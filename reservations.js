@@ -38,7 +38,6 @@
     <label><input name="consent" type="checkbox" required> ذخیره مشخصات برای رزرو و بررسی رسید توسط مرکز را می‌پذیرم. شماره همراه هنوز تأیید پیامکی نمی‌شود.</label></fieldset>
     <fieldset id="reservation-register-member" hidden disabled><legend>اتصال پرونده قبلی</legend>
     <label>کد ملی<input name="member_national_id" inputmode="numeric" minlength="10" maxlength="10" required autocomplete="off"></label>
-    <label>تاریخ تولد (شمسی)<input name="member_birth_date" type="date" required autocomplete="bday"></label>
     <label>همراه ثبت‌شده در پرونده<input name="member_phone" type="tel" inputmode="numeric" maxlength="20" required autocomplete="tel"></label>
     <label><input name="member_consent" type="checkbox" required> تطبیق مشخصات و دریافت کد تأیید همراه خودم را می‌پذیرم.</label></fieldset>
     <fieldset id="reservation-register-proof" hidden disabled><legend>تأیید همراه</legend>
@@ -349,7 +348,7 @@
     try{
       if(memberMode){
         if(!memberChallenge){
-          const result=await call("member-link/start",{details:{national_id:values.get("member_national_id"),birth_date:values.get("member_birth_date"),phone:values.get("member_phone"),consent:values.get("member_consent")==="on"}});
+          const result=await call("member-link/start",{details:{national_id:values.get("member_national_id"),phone:values.get("member_phone"),consent:values.get("member_consent")==="on"}});
           if(!/^[A-Za-z0-9_-]{43}$/.test(result.challenge))throw new Error("پاسخ بررسی معتبر نیست.");
           memberChallenge=result.challenge;memberStep();message(result.message);return;
         }

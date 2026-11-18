@@ -30,9 +30,8 @@
     <label><input name="consent" type="checkbox" required> ذخیره مشخصات و شرایط رزرو را می‌پذیرم؛ شماره همراه با پیامک تأیید نشده است.</label>
     <button type="submit" class="primary">ساخت حساب و ادامه خدمات</button></form></details>
     <details id="web-member-details"><summary>قبلاً عضو مرکز هستم؛ اتصال خودکار پرونده</summary>
-    <p>مشخصات ثبت‌شده تطبیق داده می‌شوند. اگر پرونده قدیمی مشخصات ناقص داشته باشد، اتصال فقط با شمارهٔ یکتا و تأیید پیامکی انجام می‌شود؛ اطلاعات هویتی پرونده تغییر نمی‌کند.</p>
+    <p>کد ملی و همراه ثبت‌شده بررسی می‌شوند؛ ورود با کد پیامکی است و تاریخ تولد لازم نیست. پروندهٔ قدیمیِ بدون کد ملی فقط با شمارهٔ یکتا و تأیید پیامکی متصل می‌شود؛ اطلاعات هویتی پرونده تغییر نمی‌کند.</p>
     <form id="web-member-start-form"><label>نوع ورود<select name="purpose" id="web-member-purpose"><option value="login">ورود با پیامک؛ حتی برای اولین مراجعهٔ اینترنتی</option><option value="link">اتصال پرونده و ساخت نام کاربری و رمز</option></select></label><label>کد ملی<input name="national_id" inputmode="numeric" minlength="10" maxlength="10" required autocomplete="off"></label>
-    <label>تاریخ تولد (شمسی)<input name="birth_date" type="date" required autocomplete="bday"></label>
     <label>همراه ثبت‌شده در پرونده<input name="phone" type="tel" inputmode="numeric" maxlength="20" required autocomplete="tel"></label>
     <label><input name="consent" type="checkbox" required> تطبیق مشخصات و ارسال کد تأیید به همراه خودم را می‌پذیرم.</label>
     <button type="submit" class="primary">بررسی مشخصات و دریافت کد تأیید</button></form>
@@ -118,7 +117,7 @@
       if(stage==="finish"&&!memberChallenge){message("ابتدا مشخصات پرونده را بررسی کن.");return;}
       const values=new FormData(form);
       if(stage==="start")memberLogin=values.get("purpose")==="login";
-      const payload=stage==="start"?{national_id:values.get("national_id"),birth_date:values.get("birth_date"),phone:values.get("phone"),consent:values.get("consent")==="on",purpose:memberLogin?"login":"link"}:
+      const payload=stage==="start"?{national_id:values.get("national_id"),phone:values.get("phone"),consent:values.get("consent")==="on",purpose:memberLogin?"login":"link"}:
         memberLogin?{challenge:memberChallenge,code:values.get("code")}:
         {challenge:memberChallenge,code:values.get("code"),username:values.get("username"),password:values.get("password")};
       busy=true;form.querySelector('button[type="submit"]').disabled=true;
