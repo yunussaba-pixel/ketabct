@@ -92,7 +92,7 @@
   navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go==="booking"?"services":button.dataset.go)));
   document.addEventListener("jahesh-booking-open",()=>showView("booking"));
   document.addEventListener("jahesh-account-open",()=>showView("account"));
-  document.addEventListener("jahesh-account-return",()=>{showView(returnView);document.dispatchEvent(new CustomEvent("jahesh-resume-service"));});
+  document.addEventListener("jahesh-account-return",()=>{showView(returnView==="home"?"services":returnView);document.dispatchEvent(new CustomEvent("jahesh-resume-service"));});
   document.querySelector(".brand").addEventListener("click", event => {event.preventDefault(); showView("home");});
   document.getElementById("close-dialog").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => dialogTrigger?.focus());
