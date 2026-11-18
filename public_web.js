@@ -30,8 +30,8 @@
     <label><input name="consent" type="checkbox" required> ذخیره مشخصات و شرایط رزرو را می‌پذیرم؛ شماره همراه با پیامک تأیید نشده است.</label>
     <button type="submit" class="primary">ساخت حساب و ادامه خدمات</button></form></details>
     <details id="web-member-details"><summary>قبلاً عضو مرکز هستم؛ اتصال خودکار پرونده</summary>
-    <p>کد ملی، تاریخ تولد و همراه با پرونده تطبیق داده می‌شوند؛ با تأیید همراه ثبت‌شده، همان پرونده خودکار متصل می‌شود. کد دعوت لازم نیست.</p>
-    <form id="web-member-start-form"><label>نوع ورود<select name="purpose" id="web-member-purpose"><option value="link">اولین ورود؛ اتصال پرونده به حساب وب</option><option value="login">قبلاً حساب وب ساخته‌ام؛ ورود با پیامک</option></select></label><label>کد ملی<input name="national_id" inputmode="numeric" minlength="10" maxlength="10" required autocomplete="off"></label>
+    <p>مشخصات ثبت‌شده تطبیق داده می‌شوند. اگر پرونده قدیمی مشخصات ناقص داشته باشد، اتصال فقط با شمارهٔ یکتا و تأیید پیامکی انجام می‌شود؛ اطلاعات هویتی پرونده تغییر نمی‌کند.</p>
+    <form id="web-member-start-form"><label>نوع ورود<select name="purpose" id="web-member-purpose"><option value="login">ورود با پیامک؛ حتی برای اولین مراجعهٔ اینترنتی</option><option value="link">اتصال پرونده و ساخت نام کاربری و رمز</option></select></label><label>کد ملی<input name="national_id" inputmode="numeric" minlength="10" maxlength="10" required autocomplete="off"></label>
     <label>تاریخ تولد (شمسی)<input name="birth_date" type="date" required autocomplete="bday"></label>
     <label>همراه ثبت‌شده در پرونده<input name="phone" type="tel" inputmode="numeric" maxlength="20" required autocomplete="tel"></label>
     <label><input name="consent" type="checkbox" required> تطبیق مشخصات و ارسال کد تأیید به همراه خودم را می‌پذیرم.</label>
