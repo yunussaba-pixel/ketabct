@@ -448,6 +448,7 @@
   node("library-search-button").textContent="جست‌وجو در سامانه رسمی کتابخانه";
   node("library-more").hidden=true;
   const clearLibrarySearch=()=>{
+    document.dispatchEvent(new CustomEvent("jahesh-library-search-clear"));
     node("library-books").replaceChildren();
     node("library-catalog-status").textContent="جست‌وجوی مستقیم شهرداری؛ نوع جست‌وجو را جامع یا فقط کودک انتخاب کن. پیش‌فرض فقط شهدای محمودآباد است؛ جست‌وجو در همهٔ کتابخانه‌ها هم قابل انتخاب است.";
   };
@@ -485,6 +486,7 @@
       node("library-books").append(copy);
     }
     node("library-catalog-status").textContent=(catalogType.value==="children"?"کتاب‌های کودک · ":"جست‌وجوی جامع · ")+(allBranches.checked?"محدوده: همهٔ کتابخانه‌های شهرداری.":"محدوده: شهدای محمودآباد.")+" نتایج در سایت رسمی شهرداری باز می‌شوند، نه داخل قاب وب‌اپ. اگر مرورگر داخلی پیام‌رسان خطا داد، نشانی را در مرورگر گوشی باز کن. ورود احتمالی شهرداری مستقل از حساب جهش است.";
+    document.dispatchEvent(new CustomEvent("jahesh-library-search",{detail:{query,scope:allBranches.checked?"all":"branch",catalog:catalogType.value}}));
   };
   const renewalKeys=new Map();
   document.addEventListener("jahesh-service-open",event=>{
