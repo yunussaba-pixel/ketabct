@@ -86,21 +86,21 @@
   const clear=()=>{token="";expires="";try{sessionStorage.removeItem("jahesh-public-session");}catch{};render();};
   const render=()=>{
     const embedded=authMode!=="web"&&Boolean(signed());
-    node("login-form").hidden=embedded||Boolean(token)||Boolean(node("register-details").open);node("register-details").hidden=true;node("member-details").hidden=embedded||Boolean(token)||entryMode!=="member";
-    node("entry-methods").hidden=embedded||Boolean(token);
-    node("legacy-options").hidden=embedded||Boolean(token);
-    node("no-phone-panel").hidden=embedded||Boolean(token);
-    node("phone-panel").hidden=embedded||Boolean(token)||entryMode!=="signup";
+    node("login-form").hidden=Boolean(token)||Boolean(node("register-details").open);node("register-details").hidden=true;node("member-details").hidden=Boolean(token)||entryMode!=="member";
+    node("entry-methods").hidden=Boolean(token);
+    node("legacy-options").hidden=Boolean(token);
+    node("no-phone-panel").hidden=Boolean(token);
+    node("phone-panel").hidden=Boolean(token)||entryMode!=="signup";
     node("phone-start-form").hidden=phoneStage!=="start";
     node("phone-code-form").hidden=phoneStage!=="code";
     node("phone-profile-form").hidden=phoneStage!=="profile";
     node("phone-restart").hidden=phoneStage==="start";
     node("channel-invite").hidden=phoneStage!=="profile";
-    node("logout").hidden=!token;node("account-toggle").hidden=accountVisible||embedded;
-    node("sms-login").hidden=embedded||Boolean(token);
+    node("logout").hidden=!token;node("account-toggle").hidden=accountVisible;
+    node("sms-login").hidden=Boolean(token);
     node("account-toggle").textContent=token?"حساب من / خروج":"ورود / ثبت‌نام";
     const homeEntry=document.getElementById("home-account-entry");if(homeEntry)homeEntry.textContent=token?"حساب من":"ورود / ثبت‌نام";
-    node("account-intro").textContent=token?"وارد حساب شده‌ای؛ خدمات مرکز در دسترس توست.":embedded?"ورود شما از حساب همین برنامک انجام می‌شود؛ برای استفاده از خدمات، بخش دلخواه را انتخاب کن.":"عضو هستی؟ با کد ملی و همراه وارد شو. عضو جدیدی؟ ثبت‌نام را انتخاب کن. ثبت‌نام بدون همراه و ورود با رمز هم در همین صفحه در دسترس است.";
+    node("account-intro").textContent=token?"وارد حساب شده‌ای؛ خدمات مرکز در دسترس توست.":"عضو هستی؟ با کد ملی و همراه وارد شو. عضو جدیدی؟ ثبت‌نام را انتخاب کن. ثبت‌نام بدون همراه و ورود با رمز هم در همین صفحه در دسترس است.";
     const connection=document.getElementById("eitaa-connection-panel");if(connection)connection.hidden=!embedded||!accountVisible;
   };
   const show=()=>{
