@@ -328,10 +328,15 @@
     if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را بررسی کن؛ تغییر حساب فعلاً ممکن نیست.");}
   });
   document.addEventListener("jahesh-web-session-ready",()=>{stopRenewalTracking();invalidateList();catalog=null;libraryRevision++;renewalKeys.clear();node("library-loans").replaceChildren();});
-  document.addEventListener("jahesh-resume-service",()=>{if(selectedShowId&&!busy&&!pending)node("load").onclick();});
+  document.addEventListener("jahesh-resume-service",()=>{
+    if(libraryResumeAfterLogin){libraryResumeAfterLogin=false;document.dispatchEvent(new CustomEvent("jahesh-library-open"));return;}
+    if(selectedShowId&&!busy&&!pending)node("load").onclick();
+  });
   document.addEventListener("jahesh-web-session-ended",()=>{
     stopRenewalTracking();
     invalidateList();catalog=null;form.hidden=true;node("library-loans").replaceChildren();libraryRevision++;renewalKeys.clear();
+    node("library-status").textContent="برای مشاهده امانت‌های خودت وارد حساب شو.";
+    node("library-load").textContent="ورود و مشاهده امانت‌های من";
   });
   document.addEventListener("jahesh-cinema-selected",event=>{
     if(busy||pending){message("ابتدا نتیجه عملیات قبلی را بررسی کن.");return;}
@@ -395,7 +400,9 @@
   libraryPanel.hidden=true;libraryPanel.className="reservation-panel";
   libraryPanel.innerHTML='<h3>کتابخانه شهدای محمودآباد</h3><form id="reservation-library-search"><label>عنوان کتاب، نویسنده، موضوع یا شابک<input id="reservation-library-query" type="search" maxlength="200" autocomplete="off"></label><button id="reservation-library-search-button" type="submit" class="secondary">جست‌وجوی کتاب‌های این کتابخانه</button></form><p id="reservation-library-catalog-status" role="status" aria-live="polite"></p><div id="reservation-library-books"></div><button id="reservation-library-more" type="button" class="secondary" hidden>نتایج بیشتر</button><h3>عضویت و امانت‌های من</h3><button id="reservation-library-load" type="button" class="secondary">دریافت وضعیت من</button><p id="reservation-library-status" role="status" aria-live="polite"></p><div id="reservation-library-loans"></div>';
   document.getElementById("service-dialog")?.append(libraryPanel);
-  let libraryRevision=0,libraryBusy=false;
+  let libraryRevision=0,libraryBusy=false,libraryResumeAfterLogin=false;
+  const hasLibrarySession=()=>window.JaheshPublic
+    ?window.JaheshPublic.hasSession?.()===true:Boolean(window.Eitaa?.WebApp?.initData);
   const renewalTimers=new Map();
   const stopRenewalTracking=()=>{for(const timer of renewalTimers.values())clearTimeout(timer);renewalTimers.clear();};
   const watchRenewal=(renewal,target,revision,attempt=0)=>{
@@ -465,6 +472,8 @@
     node("library-catalog-status").textContent="جست‌وجوی کتاب بدون ورود هم ممکن است؛ فقط موجودی گزارش‌شده شهدای محمودآباد نمایش داده می‌شود.";
     document.getElementById("service-dialog")?.classList.toggle("library-service-open",!libraryPanel.hidden);
     node("library-loans").replaceChildren();node("library-status").textContent="اطلاعات فقط برای صاحب حساب معتبر و پرونده متصل کتابخانه نمایش داده می‌شود؛ ورود وب هم قابل استفاده است.";
+    node("library-load").textContent=hasLibrarySession()?"تازه‌سازی عضویت و امانت‌های من":"ورود و مشاهده امانت‌های من";
+    if(!libraryPanel.hidden&&hasLibrarySession())node("library-load").onclick();
   });
   document.getElementById("service-dialog")?.addEventListener("close",()=>{
     stopRenewalTracking();
@@ -474,6 +483,11 @@
   });
   node("library-load").onclick=async()=>{
     if(libraryBusy)return;
+    if(!hasLibrarySession()){
+      libraryResumeAfterLogin=true;
+      try{identity();}catch(error){node("library-status").textContent=error.message;}
+      return;
+    }
     stopRenewalTracking();
     libraryBusy=true;node("library-load").disabled=true;
     const revision=++libraryRevision;
@@ -531,7 +545,10 @@
         }
         node("library-loans").append(card);
       }
-    }catch(error){if(revision===libraryRevision)node("library-status").textContent=error.message;}
+    }catch(error){
+      if(error.status===401)libraryResumeAfterLogin=true;
+      if(revision===libraryRevision)node("library-status").textContent=error.message;
+    }
     finally{libraryBusy=false;node("library-load").disabled=false;}
   };
   if(typeof jalaliPickerScan==="function")jalaliPickerScan(container);

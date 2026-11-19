@@ -91,6 +91,7 @@
   });
   navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go==="booking"?"services":button.dataset.go)));
   document.addEventListener("jahesh-booking-open",()=>showView("booking"));
+  document.addEventListener("jahesh-library-open",()=>openService("library",document.querySelector('[data-service="library"]')));
   document.addEventListener("jahesh-account-open",()=>showView("account"));
   document.addEventListener("jahesh-account-return",()=>{showView(returnView==="home"?"services":returnView);document.dispatchEvent(new CustomEvent("jahesh-resume-service"));});
   document.querySelector(".brand").addEventListener("click", event => {event.preventDefault(); showView("home");});

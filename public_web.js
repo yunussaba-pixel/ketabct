@@ -135,7 +135,8 @@
     }
     return data;
   };
-  window.JaheshPublic={identity,call:request};
+  window.JaheshPublic={identity,call:request,
+    hasSession:()=>Boolean((authMode!=="web"&&signed())||(token&&Date.parse(expires)>Date.now()))};
   for(const name of ["register","member"]){node(name+"-details").ontoggle=()=>{if(node(name+"-details").open)node((name==="register"?"member":"register")+"-details").open=false;render();};}
   const acceptSession=result=>{
     if(!/^[A-Za-z0-9_-]{43}$/.test(result.token)||!(Date.parse(result.expires_at)>Date.now()))throw new Error("پاسخ ورود معتبر نیست.");
