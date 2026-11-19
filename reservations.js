@@ -430,46 +430,39 @@
       }
     },15000));
   };
-  let catalogRevision=0,librarySearchBusy=false,librarySearchOffset=0,librarySearchQuery="";
-  const searchBooks=async(more=false)=>{
-    if(librarySearchBusy)return;
-    librarySearchBusy=true;node("library-search-button").disabled=true;node("library-more").disabled=true;
-    const revision=++catalogRevision;
-    if(!more){librarySearchOffset=0;librarySearchQuery=node("library-query").value.trim();node("library-books").replaceChildren();}
-    node("library-catalog-status").textContent="در حال جست‌وجو در فهرست همین کتابخانه…";
-    node("library-more").hidden=true;
-    try{
-      const endpoint=await connectionEndpoint();
-      if(!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life\/connect$/.test(endpoint))throw new Error("نشانی امن مرکز در دسترس نیست.");
-      const response=await fetch(endpoint.slice(0,-8)+"/library/catalog?query="+encodeURIComponent(librarySearchQuery)+"&offset="+librarySearchOffset,{credentials:"omit",redirect:"error",cache:"no-store",...(typeof AbortSignal!=="undefined"&&AbortSignal.timeout?{signal:AbortSignal.timeout(20000)}:{})});
-      if(!response.ok)throw new Error("دریافت فهرست کتابخانه ممکن نشد؛ دوباره تلاش کن.");
-      const result=await response.json();if(revision!==catalogRevision)return;
-      if(result.library_code!=="0048"||!Array.isArray(result.items))throw new Error("پاسخ مربوط به کتابخانه مرکز نیست.");
-      node("library-catalog-status").textContent=result.notice;
-      if(result.ready&&!result.items.length)text(node("library-books"),"p",result.complete?"عنوانی مطابق این عبارت در گزارش دریافتی یافت نشد.":"در بخش دریافت‌شده عنوانی یافت نشد؛ فهرست هنوز کامل نیست.");
-      const labels={available:"قابل امانت در زمان گزارش",on_loan:"در امانت در زمان گزارش",unavailable:"غیرقابل امانت در زمان گزارش",unknown:"وضعیت نسخه نیازمند استعلام"};
-      for(const book of result.items){
-        const card=document.createElement("article");card.className="reservation-result";
-        text(card,"h4",book.title);if(book.author)text(card,"p","نویسنده: "+book.author);
-        if(book.category)text(card,"p","بخش: "+book.category);
-        if(book.isbn)text(card,"p","شابک: "+book.isbn);
-        text(card,"p",labels[book.availability]||labels.unknown);
-        if(book.captured_at&&Number.isFinite(Date.parse(book.captured_at)))text(card,"p","آخرین دریافت: "+date(book.captured_at));
-        node("library-books").append(card);
-      }
-      librarySearchOffset+=result.items.length;
-      node("library-more").hidden=librarySearchOffset>=result.total;
-    }catch(error){if(revision===catalogRevision)node("library-catalog-status").textContent=error.message;}
-    finally{librarySearchBusy=false;node("library-search-button").disabled=false;node("library-more").disabled=false;}
+  const branchLabel=document.createElement("label"),allBranches=document.createElement("input");
+  allBranches.type="checkbox";allBranches.id="reservation-library-all-branches";
+  branchLabel.append(allBranches,document.createTextNode("جست‌وجو در همهٔ کتابخانه‌های شهرداری"));
+  node("library-search").append(branchLabel);
+  node("library-search-button").textContent="جست‌وجو در سامانه رسمی کتابخانه";
+  node("library-more").hidden=true;
+  const clearLibrarySearch=()=>{
+    node("library-books").replaceChildren();
+    node("library-catalog-status").textContent="جست‌وجوی مستقیم شهرداری؛ پیش‌فرض فقط شهدای محمودآباد است. برای گسترش جست‌وجو، همهٔ کتابخانه‌ها را انتخاب کن.";
   };
-  node("library-search").onsubmit=event=>{event.preventDefault();return searchBooks();};
-  node("library-more").onclick=()=>searchBooks(true);
+  allBranches.onchange=clearLibrarySearch;
+  node("library-search").onsubmit=event=>{
+    event.preventDefault();clearLibrarySearch();
+    const query=node("library-query").value.trim();
+    if(!query||query.length>200||/[\u0000-\u001f\u007f]/.test(query)){
+      node("library-catalog-status").textContent="عبارت جست‌وجو باید بین ۱ تا ۲۰۰ نویسه و بدون نویسهٔ کنترلی باشد.";return;
+    }
+    const encoded=query.split("").map(character=>"\\u"+character.charCodeAt(0).toString(16).toUpperCase().padStart(4,"0")).join("");
+    const parameters={q:"(f:-2,t:"+encoded+",c:7)",dts:"101,100,113,103,104,105,106,111,119,143,145,154,162",searchType:"indexed",branches:allBranches.checked?"":"50",branchSelectAll:allBranches.checked?"True":"False",sortfield:"0",sorttype:"DESC",digitalStatus:"2",digitalTypes:"1,2,3,4,5,6,7"};
+    const address="https://lib.isfahan.ir/dl/search/searchPad.aspx?"+Object.entries(parameters).map(([name,value])=>encodeURIComponent(name)+"="+encodeURIComponent(value)).join("&");
+    const external=document.createElement("a");external.href=address;external.target="_blank";external.rel="noopener noreferrer";
+    external.textContent="بازکردن نتایج در سامانه رسمی";external.className="secondary";
+    const frame=document.createElement("iframe");frame.title="نتایج جست‌وجوی رسمی کتابخانه";frame.referrerPolicy="no-referrer";
+    frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox");
+    frame.style="width:100%;height:70vh;min-height:400px;border:0;display:block;margin-top:1rem";frame.src=address;
+    node("library-books").append(external,frame);
+    node("library-catalog-status").textContent=(allBranches.checked?"محدوده: همهٔ کتابخانه‌های شهرداری.":"محدوده: شهدای محمودآباد.")+" اگر سامانه اجازهٔ نمایش در این صفحه نداد یا ورود خواست، از دکمهٔ بازکردن نتایج استفاده کن.";
+  };
   const renewalKeys=new Map();
   document.addEventListener("jahesh-service-open",event=>{
     stopRenewalTracking();
     libraryRevision++;libraryPanel.hidden=event.detail?.service!=="library";
-    catalogRevision++;node("library-books").replaceChildren();node("library-more").hidden=true;
-    node("library-catalog-status").textContent="جست‌وجوی کتاب بدون ورود هم ممکن است؛ فقط موجودی گزارش‌شده شهدای محمودآباد نمایش داده می‌شود.";
+    clearLibrarySearch();
     document.getElementById("service-dialog")?.classList.toggle("library-service-open",!libraryPanel.hidden);
     node("library-loans").replaceChildren();node("library-status").textContent="اطلاعات فقط برای صاحب حساب معتبر و پرونده متصل کتابخانه نمایش داده می‌شود؛ ورود وب هم قابل استفاده است.";
     node("library-load").textContent=hasLibrarySession()?"تازه‌سازی عضویت و امانت‌های من":"ورود و مشاهده امانت‌های من";
@@ -479,7 +472,7 @@
     stopRenewalTracking();
     clearTicketUrls();
     libraryRevision++;node("library-loans").replaceChildren();node("library-status").textContent="";
-    catalogRevision++;
+    clearLibrarySearch();
   });
   node("library-load").onclick=async()=>{
     if(libraryBusy)return;
