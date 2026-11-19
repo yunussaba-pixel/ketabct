@@ -434,29 +434,45 @@
   allBranches.type="checkbox";allBranches.id="reservation-library-all-branches";
   branchLabel.append(allBranches,document.createTextNode("جست‌وجو در همهٔ کتابخانه‌های شهرداری"));
   node("library-search").append(branchLabel);
+  const catalogLabel=document.createElement("label"),catalogType=document.createElement("select");
+  catalogType.id="reservation-library-catalog-type";
+  for(const [value,label] of [["general","جست‌وجوی جامع (شامل کودک، نوجوان و بزرگسال)"],["children","فقط پایگاه کتاب‌های فارسی کودک"]]){
+    const option=document.createElement("option");option.value=value;option.textContent=label;catalogType.append(option);
+  }
+  catalogType.value="general";
+  catalogLabel.append(document.createTextNode("نوع جست‌وجو"),catalogType);node("library-search").append(catalogLabel);
+  const teenHelp=document.createElement("p");
+  teenHelp.id="reservation-library-teen-help";
+  teenHelp.textContent="برای کتاب‌های نوجوان با علامت (ج) یا [ج] کنار رده، جست‌وجوی جامع را انتخاب کن؛ «فقط کودک» پایگاه جداگانهٔ کتاب‌های فارسی کودک را جست‌وجو می‌کند، نه تمام کتاب‌های نوجوان.";
+  catalogType.setAttribute("aria-describedby",teenHelp.id);node("library-search").append(teenHelp);
   node("library-search-button").textContent="جست‌وجو در سامانه رسمی کتابخانه";
   node("library-more").hidden=true;
   const clearLibrarySearch=()=>{
     node("library-books").replaceChildren();
-    node("library-catalog-status").textContent="جست‌وجوی مستقیم شهرداری؛ پیش‌فرض فقط شهدای محمودآباد است. برای گسترش جست‌وجو، همهٔ کتابخانه‌ها را انتخاب کن.";
+    node("library-catalog-status").textContent="جست‌وجوی مستقیم شهرداری؛ نوع جست‌وجو را جامع یا فقط کودک انتخاب کن. پیش‌فرض فقط شهدای محمودآباد است؛ جست‌وجو در همهٔ کتابخانه‌ها هم قابل انتخاب است.";
   };
   allBranches.onchange=clearLibrarySearch;
+  catalogType.onchange=clearLibrarySearch;
   node("library-search").onsubmit=event=>{
     event.preventDefault();clearLibrarySearch();
     const query=node("library-query").value.trim();
     if(!query||query.length>200||/[\u0000-\u001f\u007f]/.test(query)){
       node("library-catalog-status").textContent="عبارت جست‌وجو باید بین ۱ تا ۲۰۰ نویسه و بدون نویسهٔ کنترلی باشد.";return;
     }
+    if(!["general","children"].includes(catalogType.value)){
+      node("library-catalog-status").textContent="نوع جست‌وجو را از فهرست انتخاب کن.";return;
+    }
     const encoded=query.split("").map(character=>"\\u"+character.charCodeAt(0).toString(16).toUpperCase().padStart(4,"0")).join("");
-    const parameters={q:"(f:-2,t:"+encoded+",c:7)",dts:"101,100,113,103,104,105,106,111,119,143,145,154,162",searchType:"indexed",branches:allBranches.checked?"":"50",branchSelectAll:allBranches.checked?"True":"False",sortfield:"0",sorttype:"DESC",digitalStatus:"2",digitalTypes:"1,2,3,4,5,6,7"};
+    const parameters={q:"(f:-2,t:"+encoded+",c:7)",dts:catalogType.value==="children"?"119":"101,100,113,103,104,105,106,111,119,143,145,154,162",searchType:"indexed",branches:allBranches.checked?"":"50",branchSelectAll:allBranches.checked?"True":"False",sortfield:"0",sorttype:"DESC",digitalStatus:"2",digitalTypes:"1,2,3,4,5,6,7"};
     const address="https://lib.isfahan.ir/dl/search/searchPad.aspx?"+Object.entries(parameters).map(([name,value])=>encodeURIComponent(name)+"="+encodeURIComponent(value)).join("&");
     const external=document.createElement("a");external.href=address;external.target="_blank";external.rel="noopener noreferrer";
     external.textContent="بازکردن نتایج در سامانه رسمی";external.className="secondary";
-    const frame=document.createElement("iframe");frame.title="نتایج جست‌وجوی رسمی کتابخانه";frame.referrerPolicy="no-referrer";
+    const frame=document.createElement("iframe");frame.referrerPolicy="no-referrer";
     frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox");
+    frame.title=catalogType.value==="children"?"نتایج جست‌وجوی رسمی کتاب‌های کودک":"نتایج جست‌وجوی رسمی جامع کتابخانه";
     frame.style="width:100%;height:70vh;min-height:400px;border:0;display:block;margin-top:1rem";frame.src=address;
     node("library-books").append(external,frame);
-    node("library-catalog-status").textContent=(allBranches.checked?"محدوده: همهٔ کتابخانه‌های شهرداری.":"محدوده: شهدای محمودآباد.")+" اگر سامانه اجازهٔ نمایش در این صفحه نداد یا ورود خواست، از دکمهٔ بازکردن نتایج استفاده کن.";
+    node("library-catalog-status").textContent=(catalogType.value==="children"?"کتاب‌های کودک · ":"جست‌وجوی جامع · ")+(allBranches.checked?"محدوده: همهٔ کتابخانه‌های شهرداری.":"محدوده: شهدای محمودآباد.")+" اگر سامانه اجازهٔ نمایش در این صفحه نداد یا ورود خواست، از دکمهٔ بازکردن نتایج استفاده کن.";
   };
   const renewalKeys=new Map();
   document.addEventListener("jahesh-service-open",event=>{
