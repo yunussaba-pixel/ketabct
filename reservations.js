@@ -466,13 +466,25 @@
     const parameters={q:"(f:-2,t:"+encoded+",c:7)",dts:catalogType.value==="children"?"119":"101,100,113,103,104,105,106,111,119,143,145,154,162",searchType:"indexed",branches:allBranches.checked?"":"50",branchSelectAll:allBranches.checked?"True":"False",sortfield:"0",sorttype:"DESC",digitalStatus:"2",digitalTypes:"1,2,3,4,5,6,7"};
     const address="https://lib.isfahan.ir/dl/search/searchPad.aspx?"+Object.entries(parameters).map(([name,value])=>encodeURIComponent(name)+"="+encodeURIComponent(value)).join("&");
     const external=document.createElement("a");external.href=address;external.target="_blank";external.rel="noopener noreferrer";
-    external.textContent="بازکردن نتایج در سامانه رسمی";external.className="secondary";
-    const frame=document.createElement("iframe");frame.referrerPolicy="no-referrer";
-    frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox");
-    frame.title=catalogType.value==="children"?"نتایج جست‌وجوی رسمی کتاب‌های کودک":"نتایج جست‌وجوی رسمی جامع کتابخانه";
-    frame.style="width:100%;height:70vh;min-height:400px;border:0;display:block;margin-top:1rem";frame.src=address;
-    node("library-books").append(external,frame);
-    node("library-catalog-status").textContent=(catalogType.value==="children"?"کتاب‌های کودک · ":"جست‌وجوی جامع · ")+(allBranches.checked?"محدوده: همهٔ کتابخانه‌های شهرداری.":"محدوده: شهدای محمودآباد.")+" اگر سامانه اجازهٔ نمایش در این صفحه نداد یا ورود خواست، از دکمهٔ بازکردن نتایج استفاده کن.";
+    external.textContent="نمایش نتایج در مرورگر";external.className="secondary";
+    external.onclick=event=>{
+      const app=window.Eitaa?.WebApp;
+      if(app?.initData&&typeof app.openLink==="function"){
+        try{app.openLink(address);event.preventDefault();}catch{}
+      }
+    };
+    const sameTab=document.createElement("a");sameTab.href=address;sameTab.target="_self";sameTab.rel="noreferrer";
+    sameTab.textContent="اگر پنجره جدید باز نشد، در همین صفحه باز کن";
+    node("library-books").append(external,sameTab);
+    if(typeof navigator!=="undefined"&&typeof navigator.clipboard?.writeText==="function"){
+      const copy=document.createElement("button");copy.type="button";copy.className="secondary";copy.textContent="رونوشت نشانی برای مرورگر دیگر";
+      copy.onclick=async()=>{
+        try{await navigator.clipboard.writeText(address);copy.textContent="نشانی کپی شد؛ در Chrome یا مرورگر گوشی باز کن.";}
+        catch{copy.textContent="کپی خودکار ممکن نشد؛ نشانی را از دکمه نمایش نتایج کپی کن.";}
+      };
+      node("library-books").append(copy);
+    }
+    node("library-catalog-status").textContent=(catalogType.value==="children"?"کتاب‌های کودک · ":"جست‌وجوی جامع · ")+(allBranches.checked?"محدوده: همهٔ کتابخانه‌های شهرداری.":"محدوده: شهدای محمودآباد.")+" نتایج در سایت رسمی شهرداری باز می‌شوند، نه داخل قاب وب‌اپ. اگر مرورگر داخلی پیام‌رسان خطا داد، نشانی را در مرورگر گوشی باز کن. ورود احتمالی شهرداری مستقل از حساب جهش است.";
   };
   const renewalKeys=new Map();
   document.addEventListener("jahesh-service-open",event=>{
