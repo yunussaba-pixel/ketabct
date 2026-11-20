@@ -418,7 +418,8 @@
   const hasLibrarySession=()=>window.JaheshPublic
     ?window.JaheshPublic.hasSession?.()===true:Boolean(window.Eitaa?.WebApp?.initData);
   const renewalTimers=new Map();
-  const stopRenewalTracking=()=>{for(const timer of renewalTimers.values())clearTimeout(timer);renewalTimers.clear();};
+  let libraryRefreshTimer=null,libraryRefreshAttempts=0;
+  const stopRenewalTracking=()=>{clearTimeout(libraryRefreshTimer);libraryRefreshTimer=null;for(const timer of renewalTimers.values())clearTimeout(timer);renewalTimers.clear();};
   const watchRenewal=(renewal,target,revision,attempt=0)=>{
     const requestKey=renewal.request_key;
     if(!requestKey||revision!==libraryRevision)return;
@@ -518,8 +519,9 @@
     libraryRevision++;node("library-loans").replaceChildren();node("library-status").textContent="";
     clearLibrarySearch();
   });
-  node("library-load").onclick=async()=>{
+  node("library-load").onclick=async(event)=>{
     if(libraryBusy)return;
+    if(event?.automaticRefresh!==true)libraryRefreshAttempts=0;
     if(!hasLibrarySession()){
       libraryResumeAfterLogin=true;
       try{identity();}catch(error){node("library-status").textContent=error.message;}
@@ -546,7 +548,23 @@
         if(renewal.renewal_confirmed&&renewal.due_date)text(progress,"p","سررسید تازه: "+libraryDate(renewal.due_date));
         node("library-loans").append(progress);
       }
-      if(!result.fresh)return;
+      if(!result.fresh){
+        if(["pending","claimed"].includes(result.refresh_status)&&libraryRefreshAttempts<12){
+          libraryRefreshAttempts++;
+          libraryRefreshTimer=setTimeout(()=>{
+            libraryRefreshTimer=null;
+            if(revision!==libraryRevision||libraryPanel.hidden||!hasLibrarySession())return;
+            if(document.visibilityState==="hidden"||navigator.onLine===false){
+              node("library-status").textContent="برای ادامهٔ دریافت اطلاعات، صفحه را باز نگه دارید و وضعیت را تازه کنید.";return;
+            }
+            return node("library-load").onclick({automaticRefresh:true});
+          },15000);
+        }else if(["pending","claimed"].includes(result.refresh_status)){
+          node("library-status").textContent="پروندهٔ شما متصل است؛ دریافت شهرداری بیشتر طول کشیده است. کمی بعد وضعیت را تازه کنید.";
+        }
+        return;
+      }
+      libraryRefreshAttempts=0;
       if(!result.loans.length)text(node("library-loans"),"p","در آخرین اطلاعات معتبر، امانتی ثبت نشده است.");
       for(const loan of result.loans){
         const card=document.createElement("article");card.className="reservation-result";
