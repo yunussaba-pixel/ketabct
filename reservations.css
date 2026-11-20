@@ -1,1 +1,46 @@
 .reservation-panel{background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px;margin:18px 0}.reservation-panel input:not([type=checkbox]){width:100%;min-height:48px;padding:10px;border:1px solid #cfdfd9;border-radius:12px;font:inherit}.reservation-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.reservation-panel button{margin:8px 0;min-height:48px}.reservation-result{border:1px solid var(--line);padding:16px;border-radius:16px;margin:12px 0;overflow-wrap:anywhere}.reservation-result p{font-size:12px}.reservation-result strong{display:block}.reservation-confirmed{border-color:#22754a;background:#effaf2}.reservation-panel [role=status]{white-space:pre-line;font-size:12px}.reservation-panel .jp-panel{z-index:20}.reservation-panel input[type=checkbox]{width:20px;height:20px;vertical-align:middle}@media(max-width:360px){.reservation-grid{grid-template-columns:1fr}}
+
+[data-view="booking"]{--booking-ink:#16434d;--booking-deep:#102e39;--booking-bright:#147c82;--booking-wash:#eaf7f7;--booking-pop:#8cf3dc}
+[data-booking-theme="gamenet"]{--booking-ink:#11516c;--booking-deep:#09263c;--booking-bright:#087598;--booking-wash:#e8f7ff;--booking-pop:#81edff}
+[data-booking-theme="cinema"]{--booking-ink:#642665;--booking-deep:#28172f;--booking-bright:#8c3578;--booking-wash:#faeef8;--booking-pop:#ffc58b}
+[data-booking-theme="cafe"]{--booking-ink:#71371c;--booking-deep:#351c19;--booking-bright:#97502d;--booking-wash:#fff2e9;--booking-pop:#ffcf9d}
+.page-heading.booking-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 0 14px;padding:clamp(18px,5vw,30px);border-radius:26px;background:radial-gradient(ellipse at 0 0,var(--booking-bright),transparent 75%),var(--booking-deep);color:#fff;box-shadow:0 14px 28px #182b3625}
+.booking-hero h1{font-size:clamp(21px,5vw,33px);margin:4px 0}
+.booking-hero p{color:#fff;font-size:.86rem;margin:0}
+.booking-hero span{color:var(--booking-pop);font-size:.75rem;font-weight:800}
+.booking-hero svg{width:clamp(40px,12vw,82px);height:auto;aspect-ratio:1;color:var(--booking-pop);flex-shrink:0;transform:rotate(-10deg)}
+.booking-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.booking-choices button{--choice:#155a73;--choice-wash:#eaf7fd;display:grid;justify-items:start;align-content:start;gap:8px;min-width:0;min-height:112px;position:relative;text-align:start;padding:10px;border:1px solid #d6e6eb;border-radius:16px;background:var(--choice-wash);color:var(--choice)}
+.booking-choices button[data-booking-service="cinema"]{--choice:#76336b;--choice-wash:#faedf8}
+.booking-choices button[data-booking-service="cafe"]{--choice:#844424;--choice-wash:#fff0e5}
+.booking-choices button[aria-pressed="true"]{background:var(--choice);color:#fff;border-color:var(--choice)}
+.booking-choices svg{width:26px;height:26px}
+.booking-choices strong,.booking-choices small{display:block}
+.booking-choices small{font-size:.69rem;line-height:1.6}
+.booking-choices b{position:absolute;inset-block-start:10px;inset-inline-end:10px}
+.booking-panel{padding:clamp(12px,4vw,22px);border-radius:24px}
+.booking-panel .primary{background:var(--booking-bright)}
+.booking-status{color:var(--booking-ink);margin:8px 0 14px}
+.booking-flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center;font-size:.7rem;font-weight:800;color:var(--booking-ink)}
+.booking-flow span{background:var(--booking-wash);padding:7px 3px;border-radius:9px}
+.booking-stage{margin:14px 0;min-width:0;padding:14px;border:1px solid #d6e3e5;border-radius:16px}
+.booking-stage h2{color:var(--booking-ink)}
+.booking-window{grid-template-columns:repeat(2,minmax(0,1fr))}
+.booking-window label:first-child{grid-column:1/-1}
+#reservation-availability{min-width:0;margin:12px 0;padding:10px}
+#reservation-availability summary{cursor:pointer;color:var(--booking-ink);min-height:38px}
+#reservation-slots{grid-template-columns:repeat(auto-fill,minmax(66px,1fr));margin:5px 0}
+#reservation-slots button{margin:0;padding:8px;font-variant-numeric:tabular-nums}
+#reservation-slots button[aria-pressed="true"]{background:var(--booking-ink);color:#fff;border-color:var(--booking-ink)}
+.booking-review{background:var(--booking-wash);border-color:transparent}
+#reservation-estimate{white-space:pre-line;color:var(--booking-ink);line-height:2}
+.booking-consent{display:flex;align-items:flex-start;gap:8px}
+.booking-consent input{flex-shrink:0;accent-color:var(--booking-bright)}
+.booking-tracking{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.booking-tracking .reservation-result{border-inline-start:4px solid var(--booking-bright)}
+[data-booking-theme="cinema"] .public-showtime{background:var(--booking-wash);border-color:#e9d4e6}
+.public-showtime strong,.public-showtime small{display:block}
+.public-showtime strong{color:var(--booking-ink)}
+[data-booking-theme="cinema"] .public-showtime .primary{background:var(--booking-bright)}
+[data-booking-theme="cinema"] #reservation-seats label:has(input:checked){color:#fff;background:var(--booking-ink);border-color:var(--booking-ink)}
+@media(max-width:345px){.booking-choices{gap:5px}.booking-choices button{padding:8px;min-height:100px}.booking-choices b{display:none}.booking-stage{padding:10px}}

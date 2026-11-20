@@ -7,8 +7,10 @@
   const heading=document.createElement("h2");heading.textContent="فیلم‌ها و سانس‌های سینما جهش";
   button.type="button";button.className="secondary";button.textContent="به‌روزرسانی فیلم‌ها و سانس‌ها";
   status.setAttribute("role","status");shows.className="public-films";section.classList.add("cinema-program");
-  section.append(heading,button,status,shows);host.prepend(section);
-  if(typeof URLSearchParams!=="undefined"){const initial=new URLSearchParams(window.location?.search||"").get("section");section.hidden=initial==="games"||initial==="gamenet"||initial==="cafe";}
+  section.append(heading,button,status,shows);
+  const choices=host.querySelector?.(".booking-choices");
+  if(choices)choices.after(section);else host.prepend(section);
+  section.hidden=host.dataset?.bookingTheme!=="cinema";
   document.addEventListener("jahesh-booking-section",event=>{section.hidden=event.detail.kind!=="cinema";});
   const load=async()=>{
     if(button.disabled)return;
@@ -55,7 +57,10 @@
         for(const screening of screenings){
           const row=document.createElement("div");row.className="public-showtime";
           const label=document.createElement("p");
-          label.textContent=new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Tehran"}).format(new Date(screening.starts_at))+" · "+(screening.hall||"سالن مرکز")+" · "+new Intl.NumberFormat("fa-IR").format(screening.price)+" تومان · ظرفیت باقی‌مانده "+new Intl.NumberFormat("fa-IR").format(screening.remaining);
+          const time=document.createElement("strong"),detail=document.createElement("small");
+          time.textContent=new Intl.DateTimeFormat("fa-IR",{dateStyle:"full",timeStyle:"short",timeZone:"Asia/Tehran"}).format(new Date(screening.starts_at));
+          detail.textContent=(screening.hall||"سالن مرکز")+" · هر بلیت "+new Intl.NumberFormat("fa-IR").format(screening.price)+" تومان · "+new Intl.NumberFormat("fa-IR").format(screening.remaining)+" جای باقی‌مانده";
+          label.append(time,detail);
           const select=document.createElement("button");select.type="button";select.className="primary";
           select.disabled=!screening.booking_enabled||screening.remaining<=0;
           select.textContent=screening.remaining<=0?"ظرفیت تکمیل":screening.booking_enabled?"انتخاب این سانس و ادامه رزرو":"رزرو این سانس فعال نیست";

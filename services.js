@@ -89,7 +89,15 @@
   document.querySelectorAll("[data-service]").forEach(button => {
     button.addEventListener("click", () => openService(button.dataset.service, button));
   });
-  navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go==="booking"?"services":button.dataset.go)));
+  document.addEventListener("jahesh-booking-service",event=>openService(event.detail.key,event.detail.trigger));
+  navigation.forEach(button => button.addEventListener("click", () => {
+    if(button.dataset.go!=="booking"){showView(button.dataset.go);return;}
+    if(document.dispatchEvent(new CustomEvent("jahesh-before-service-change",{cancelable:true}))===false)return;
+    if(dialog.open)dialog.close();
+    showView("booking");
+    const selector=document.getElementById("request-section");if(selector)selector.disabled=false;
+    document.dispatchEvent(new CustomEvent("jahesh-booking-section",{detail:{kind:null,title:"برای وقتت برنامه بچین"}}));
+  }));
   document.addEventListener("jahesh-booking-open",()=>showView("booking"));
   document.addEventListener("jahesh-my-reservations-open",()=>{
     if(document.dispatchEvent(new CustomEvent("jahesh-before-service-change",{cancelable:true}))===false)return;
