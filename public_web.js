@@ -3,20 +3,25 @@
   const mount=document.getElementById("web-account");
   if(!mount)return;
   const signed=()=>window.Eitaa?.WebApp?.initData||"";
-  let token="",expires="",busy=false,authMode=null,accountVisible=false;
+  let token="",expires="",busy=false,authMode=null,accountVisible=false,profile=null,profileRevision=0;
   let memberChallenge="";
   let memberLogin=false;
   let entryMode="member",pendingProfile=null;
   let phoneChallenge="",phoneProof="",verifiedPhone="",phoneStage="start",phoneRetryAt=0;
+  const durableStorage=()=>{try{return localStorage;}catch{return null;}};
+  const temporaryStorage=()=>{try{return sessionStorage;}catch{return null;}};
   try{
-    const saved=JSON.parse(sessionStorage.getItem("jahesh-public-session")||"null");
+    const saved=JSON.parse(durableStorage()?.getItem("jahesh-public-session")||temporaryStorage()?.getItem("jahesh-public-session")||"null");
     if(saved&&/^[A-Za-z0-9_-]{43}$/.test(saved.token)&&Date.parse(saved.expires_at)>Date.now()){
       token=saved.token;expires=saved.expires_at;
+      if(saved.auth_mode==="web")authMode="web";
     }
   }catch{}
   mount.innerHTML=`<button id="web-account-toggle" type="button" class="secondary">ورود / حساب من</button>
     <section id="web-account-panel" class="reservation-panel" hidden aria-label="ورود و ثبت‌نام">
     <h2>حساب من</h2><p id="web-account-intro">برای ادامه خدمات وارد حساب خودت شو یا ثبت‌نام کن.</p>
+    <nav id="web-my-services" aria-label="خدمات حساب من" hidden><button type="button" data-service="cinema" class="secondary">سینما و بلیت‌های من</button><button type="button" data-service="games" class="secondary">رزرو بازیکده</button><button type="button" data-service="cafe" class="secondary">رزرو کافه</button><button type="button" data-service="library" class="secondary">عضویت و امانت‌های من</button></nav>
+    <label id="web-remember-choice"><input id="web-remember" type="checkbox" checked> در این دستگاه شخصی وارد بمانم (تا ۳۰ روز). در دستگاه مشترک این گزینه را بردار.</label>
     <p id="web-account-status" role="status" aria-live="polite"></p>
     <nav id="web-entry-methods" aria-label="روش ورود"><button id="web-choose-member" type="button" class="secondary">عضو هستم؛ ورود با کد ملی و همراه</button><button id="web-choose-signup" type="button" class="secondary">عضو جدید؛ ثبت‌نام</button></nav>
     <details id="web-no-phone-panel"><summary>ثبت‌نام بدون شماره همراه (از جمله کودکان)</summary>
@@ -80,10 +85,10 @@
     <button type="submit" class="primary">تأیید همراه و اتصال خودکار</button></form>
     <button id="web-member-restart" type="button" class="secondary" hidden>اصلاح مشخصات / درخواست کد تازه</button></details>
     <button id="web-logout" type="button" class="secondary" hidden>خروج از حساب</button>
-    <details><summary>امنیت حساب</summary><p class="notice">ورود تازه، نشست قبلی را می‌بندد. بازیابی رمز نیازمند بررسی مرکز است؛ نام یا شماره همراه به‌تنهایی مجوز دسترسی به امانت‌ها نیست.</p></details></section>`;
+    <details><summary>امنیت حساب</summary><p class="notice">ورود تازه، نشست قبلی را می‌بندد. خروج، لغو دسترسی یا پایان مهلت، ورود دوباره می‌خواهد. حساب سایت و برنامک ممکن است در دو فضای مرورگر جدا باشند؛ هر کدام یک‌بار ورود لازم دارند.</p></details></section>`;
   const node=name=>document.getElementById("web-"+name);
   const message=text=>{node("account-status").textContent=text;};
-  const clear=()=>{token="";expires="";try{sessionStorage.removeItem("jahesh-public-session");}catch{};render();};
+  const clear=()=>{token="";expires="";profile=null;profileRevision++;for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{};render();};
   const render=()=>{
     const embedded=authMode!=="web"&&Boolean(signed());
     node("login-form").hidden=Boolean(token)||Boolean(node("register-details").open);node("register-details").hidden=true;node("member-details").hidden=Boolean(token)||entryMode!=="member";
@@ -97,9 +102,20 @@
     node("phone-restart").hidden=phoneStage==="start";
     node("channel-invite").hidden=phoneStage!=="profile";
     node("logout").hidden=!token;node("account-toggle").hidden=accountVisible;
+    node("remember-choice").hidden=Boolean(token);
+    node("my-services").hidden=!token&&!profile;
     node("sms-login").hidden=Boolean(token);
     node("account-toggle").textContent=token?"حساب من / خروج":"ورود / ثبت‌نام";
     const homeEntry=document.getElementById("home-account-entry");if(homeEntry)homeEntry.textContent=token?"حساب من":"ورود / ثبت‌نام";
+    const greeting=document.getElementById("member-greeting");
+    if(greeting){
+      greeting.hidden=!profile;
+      document.getElementById("member-greeting-name").textContent=profile?profile.first_name+" عزیز، خوش آمدی":"";
+      const picture=document.getElementById("member-greeting-photo"),fallback=document.getElementById("member-greeting-initial");
+      picture.hidden=!profile?.avatar;picture.src=profile?.avatar||"";
+      fallback.hidden=Boolean(profile?.avatar);fallback.textContent=profile?.first_name?.slice(0,1)||"";
+      greeting.setAttribute("aria-label",profile?.display_name||"حساب من");
+    }
     node("account-intro").textContent=token?"وارد حساب شده‌ای؛ خدمات مرکز در دسترس توست.":"عضو هستی؟ با کد ملی و همراه وارد شو. عضو جدیدی؟ ثبت‌نام را انتخاب کن. ثبت‌نام بدون همراه و ورود با رمز هم در همین صفحه در دسترس است.";
     const connection=document.getElementById("eitaa-connection-panel");if(connection)connection.hidden=!embedded||!accountVisible;
   };
@@ -137,19 +153,35 @@
   };
   window.JaheshPublic={identity,call:request,
     hasSession:()=>Boolean((authMode!=="web"&&signed())||(token&&Date.parse(expires)>Date.now()))};
+  const loadProfile=async()=>{
+    if(!window.JaheshPublic.hasSession())return;
+    const revision=++profileRevision;
+    try{
+      const data=await request("/profile",{});
+      if(revision!==profileRevision)return;
+      if(typeof data.first_name!=="string"||!data.first_name.trim()||typeof data.display_name!=="string")return;
+      profile={first_name:data.first_name.slice(0,100),display_name:data.display_name.slice(0,400),
+        avatar:typeof data.avatar==="string"&&/^data:image\/webp;base64,[A-Za-z0-9+/=]+$/.test(data.avatar)&&data.avatar.length<100000?data.avatar:""};
+      render();
+    }catch{if(revision===profileRevision){profile=null;render();}}
+  };
   for(const name of ["register","member"]){node(name+"-details").ontoggle=()=>{if(node(name+"-details").open)node((name==="register"?"member":"register")+"-details").open=false;render();};}
   const acceptSession=result=>{
     if(!/^[A-Za-z0-9_-]{43}$/.test(result.token)||!(Date.parse(result.expires_at)>Date.now()))throw new Error("پاسخ ورود معتبر نیست.");
+    profile=null;profileRevision++;
     token=result.token;expires=result.expires_at;authMode="web";memberChallenge="";
     phoneChallenge="";phoneProof="";verifiedPhone="";phoneStage="start";
     node("phone-code-form").elements.namedItem("code").value="";
     for(const name of ["first_name","last_name","father_name","national_id"])node("phone-profile-form").elements.namedItem(name).value="";
     node("member-finish-form").hidden=true;node("member-start-form").hidden=false;
     node("member-restart").hidden=true;
-    try{sessionStorage.setItem("jahesh-public-session",JSON.stringify({token,expires_at:expires}));}catch{}
+    for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{}
+    const savedSession=JSON.stringify({token,expires_at:expires,auth_mode:"web"});
+    try{((node("remember").checked?durableStorage():null)||temporaryStorage())?.setItem("jahesh-public-session",savedSession);}catch{try{temporaryStorage()?.setItem("jahesh-public-session",savedSession);}catch{}}
     pendingProfile=null;
     for(const name of ["first_name","last_name","father_name","national_id"])node("phone-start-form").elements.namedItem(name).value="";
     render();message("ورود موفق بود؛ خدمات مرکز آماده است.");
+    loadProfile();
     document.dispatchEvent(new CustomEvent("jahesh-web-session-ready"));
     document.dispatchEvent(new CustomEvent("jahesh-account-return"));
   };
@@ -307,4 +339,5 @@
   };
   document.addEventListener?.("jahesh-view-changed",event=>{accountVisible=event.detail.view==="account";render();if(accountVisible)node("account-panel").hidden=false;});
   render();
+  loadProfile();
 })();

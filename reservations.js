@@ -251,7 +251,19 @@
       if(["awaiting_payment","awaiting_operator"].includes(item.status)){
         text(card,"p","مهلت بررسی: "+date(item.expires_at));
         if(item.payment_authorized!==false&&item.amount>0&&!item.receipts.some(row=>["pending","confirmed"].includes(row.status))){
-          text(card,"p",item.card_number?"کارت مرکز: "+item.card_number+" · "+item.card_holder:"شماره کارت مرکز تنظیم نشده؛ قبل از پرداخت با مرکز تماس بگیر.");
+          if(item.card_number){
+            text(card,"p","کارت مرکز · "+item.card_holder);
+            const copy=text(card,"button",item.card_number+" · لمس برای کپی");
+            copy.type="button";copy.className="payment-card-copy";copy.dir="ltr";
+            copy.setAttribute("aria-label","کپی شماره کارت مرکز");
+            const copied=text(card,"p","");copied.setAttribute("role","status");
+            copy.onclick=async()=>{
+              const digits=String(item.card_number).replace(/[۰-۹]/g,digit=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit))).replace(/[٠-٩]/g,digit=>String("٠١٢٣٤٥٦٧٨٩".indexOf(digit))).replace(/[\s-]/g,"");
+              if(!/^\d{16}$/.test(digits)){copied.textContent="شماره کارت معتبر نیست؛ پیش از پرداخت با مرکز بررسی کن.";return;}
+              try{await navigator.clipboard.writeText(digits);copied.textContent="شماره کارت کپی شد.";}
+              catch{copied.textContent="کپی خودکار در این مرورگر ممکن نیست؛ شمارهٔ نمایش‌داده‌شده را دستی کپی کن.";}
+            };
+          }else text(card,"p","شماره کارت مرکز تنظیم نشده؛ قبل از پرداخت با مرکز تماس بگیر.");
           const receipt=document.createElement("form");
           receipt.innerHTML='<label>مبلغ واریزی (تومان)<input name="amount" type="number" required min="1" max="1000000000"></label><label>تاریخ واریز<input name="payment_date" type="date" required></label><label>ساعت دقیق واریز به وقت مرکز<input name="payment_time" type="time" required></label><label>شماره پیگیری واریز<input name="reference" minlength="3" maxlength="60" required></label><label><input name="paid_confirmed" type="checkbox" required> واریز را انجام داده‌ام؛ تأیید دریافت با اپراتور است.</label><button type="submit" class="secondary" data-reservation-action>ثبت اطلاعات رسید</button>';
           receipt.elements.namedItem("amount").value=item.amount;

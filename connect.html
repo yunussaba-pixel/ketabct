@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="./services.css?v=2-webfonts">
   <script src="https://developer.eitaa.com/eitaa-web-app.js" async></script>
   <script src="./connect.js?v=3" defer></script>
-  <script src="./public_web.js?v=13-library-session" defer></script>
+  <script src="./public_web.js?v=14-personal-account" defer></script>
   <script src="./services.js?v=10-feedback" defer></script>
   <script src="./feedback.js?v=1" defer></script>
   <script src="./requests.js?v=5-repeatable-section-requests" defer></script>
@@ -19,10 +19,10 @@
   <link rel="stylesheet" href="./reservations.css?v=1">
   <script src="./calendar_core.js?v=1" defer></script>
   <script src="./jalali_picker.js?v=2-mobile-keyboard" defer></script>
-  <script src="./reservations.js?v=21-municipal-external-search" defer></script>
+  <script src="./reservations.js?v=22-copy-card" defer></script>
   <script src="./library_search.js?v=1-live-search" defer></script>
-  <link rel="stylesheet" href="./seating.css?v=5-cinema-ticket">
-  <script src="./content.js?v=4-cinema-only" defer></script>
+  <link rel="stylesheet" href="./seating.css?v=6-personal-account">
+  <script src="./content.js?v=5-film-trailer" defer></script>
 </head>
 <body>
 <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -39,6 +39,7 @@
 </defs></svg>
 <div class="app-shell">
   <header class="topbar"><a class="brand" href="#home" aria-label="خانه جهش"><span class="brand-mark">ج</span><span><strong>جهش</strong><small>کتابخانه شهدای محمودآباد</small></span></a><span class="release">خدمات مرکز</span></header>
+  <section id="member-greeting" class="member-greeting" hidden aria-label="حساب من"><img id="member-greeting-photo" width="48" height="48" alt="تصویر پروفایل من" hidden><span id="member-greeting-initial" aria-hidden="true"></span><strong id="member-greeting-name"></strong></section>
   <main id="main" tabindex="-1">
     <section data-view="account" hidden aria-label="حساب من"><button type="button" class="secondary" data-go="home">بازگشت به خانه</button><aside id="web-account" aria-label="ورود و حساب من"></aside></section>
     <section data-view="home" aria-labelledby="home-title">

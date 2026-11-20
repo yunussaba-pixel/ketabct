@@ -40,6 +40,17 @@
         if(typeof show.poster==="string"&&/^data:image\/(png|jpeg|webp);base64,/.test(show.poster)){
           const image=document.createElement("img");image.src=show.poster;image.alt=show.title;image.width=112;image.height=160;image.decoding="async";card.append(image);
         }
+        if(typeof show.trailer_url==="string"){
+          try{
+            const address=new URL(show.trailer_url);
+            if(address.protocol==="https:"&&address.hostname.includes(".")&&!address.username&&!address.password){
+              const trailer=document.createElement("a");trailer.href=address.href;trailer.target="_blank";
+              trailer.rel="noopener noreferrer";trailer.referrerPolicy="no-referrer";
+              trailer.className="secondary public-trailer";trailer.textContent="تماشای تیزر فیلم ↗";
+              card.append(trailer);
+            }
+          }catch{}
+        }
         const slots=document.createElement("div");slots.className="public-showtimes";
         for(const screening of screenings){
           const row=document.createElement("div");row.className="public-showtime";
