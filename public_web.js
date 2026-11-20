@@ -10,17 +10,21 @@
   let phoneChallenge="",phoneProof="",verifiedPhone="",phoneStage="start",phoneRetryAt=0;
   const durableStorage=()=>{try{return localStorage;}catch{return null;}};
   const temporaryStorage=()=>{try{return sessionStorage;}catch{return null;}};
-  try{
-    const saved=JSON.parse(durableStorage()?.getItem("jahesh-public-session")||temporaryStorage()?.getItem("jahesh-public-session")||"null");
-    if(saved&&/^[A-Za-z0-9_-]{43}$/.test(saved.token)&&Date.parse(saved.expires_at)>Date.now()){
-      token=saved.token;expires=saved.expires_at;
-      if(saved.auth_mode==="web")authMode="web";
-    }
-  }catch{}
+  for(const storage of [durableStorage(),temporaryStorage()]){
+    try{
+      const saved=JSON.parse(storage?.getItem("jahesh-public-session")||"null");
+      if(saved&&/^[A-Za-z0-9_-]{43}$/.test(saved.token)&&Date.parse(saved.expires_at)>Date.now()){
+        token=saved.token;expires=saved.expires_at;
+        if(saved.auth_mode==="web")authMode="web";
+        break;
+      }
+    }catch{}
+  }
   mount.innerHTML=`<button id="web-account-toggle" type="button" class="secondary">ورود / حساب من</button>
     <section id="web-account-panel" class="reservation-panel" hidden aria-label="ورود و ثبت‌نام">
     <h2>حساب من</h2><p id="web-account-intro">برای ادامه خدمات وارد حساب خودت شو یا ثبت‌نام کن.</p>
-    <nav id="web-my-services" aria-label="خدمات حساب من" hidden><button type="button" data-service="cinema" class="secondary">سینما و بلیت‌های من</button><button type="button" data-service="games" class="secondary">رزرو بازیکده</button><button type="button" data-service="cafe" class="secondary">رزرو کافه</button><button type="button" data-service="library" class="secondary">عضویت و امانت‌های من</button></nav>
+    <nav id="web-my-services" aria-label="خدمات حساب من" hidden><button id="web-my-reservations" type="button" class="primary">رزروها، پرداخت‌ها و بلیت‌های من</button><button type="button" data-service="cinema" class="secondary">فیلم‌ها و رزرو سینما</button><button type="button" data-service="games" class="secondary">رزرو بازیکده</button><button type="button" data-service="cafe" class="secondary">رزرو کافه</button><button type="button" data-service="library" class="secondary">عضویت و امانت‌های من</button></nav>
+    <button id="web-profile-refresh" type="button" class="secondary" hidden>به‌روزرسانی نام و عکس پرونده</button><p id="web-profile-status" role="status" aria-live="polite"></p>
     <label id="web-remember-choice"><input id="web-remember" type="checkbox" checked> در این دستگاه شخصی وارد بمانم (تا ۳۰ روز). در دستگاه مشترک این گزینه را بردار.</label>
     <p id="web-account-status" role="status" aria-live="polite"></p>
     <nav id="web-entry-methods" aria-label="روش ورود"><button id="web-choose-member" type="button" class="secondary">عضو هستم؛ ورود با کد ملی و همراه</button><button id="web-choose-signup" type="button" class="secondary">عضو جدید؛ ثبت‌نام</button></nav>
@@ -88,7 +92,7 @@
     <details><summary>امنیت حساب</summary><p class="notice">ورود تازه، نشست قبلی را می‌بندد. خروج، لغو دسترسی یا پایان مهلت، ورود دوباره می‌خواهد. حساب سایت و برنامک ممکن است در دو فضای مرورگر جدا باشند؛ هر کدام یک‌بار ورود لازم دارند.</p></details></section>`;
   const node=name=>document.getElementById("web-"+name);
   const message=text=>{node("account-status").textContent=text;};
-  const clear=()=>{token="";expires="";profile=null;profileRevision++;for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{};render();};
+  const clear=()=>{token="";expires="";profile=null;profileRevision++;node("profile-refresh").disabled=false;node("profile-status").textContent="";for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{};render();};
   const render=()=>{
     const embedded=authMode!=="web"&&Boolean(signed());
     node("login-form").hidden=Boolean(token)||Boolean(node("register-details").open);node("register-details").hidden=true;node("member-details").hidden=Boolean(token)||entryMode!=="member";
@@ -104,6 +108,7 @@
     node("logout").hidden=!token;node("account-toggle").hidden=accountVisible;
     node("remember-choice").hidden=Boolean(token);
     node("my-services").hidden=!token&&!profile;
+    node("profile-refresh").hidden=!token&&!signed();
     node("sms-login").hidden=Boolean(token);
     node("account-toggle").textContent=token?"حساب من / خروج":"ورود / ثبت‌نام";
     const homeEntry=document.getElementById("home-account-entry");if(homeEntry)homeEntry.textContent=token?"حساب من":"ورود / ثبت‌نام";
@@ -123,6 +128,7 @@
     const dialog=document.getElementById("service-dialog");if(dialog?.open)dialog.close();
     accountVisible=true;document.dispatchEvent(new CustomEvent("jahesh-account-open"));
     render();node("account-panel").hidden=false;mount.scrollIntoView?.({behavior:"smooth",block:"start"});
+    if(!profile)loadProfile();
   };
   const canChange=()=>document.dispatchEvent(new CustomEvent("jahesh-before-account-change",{cancelable:true}));
   const identity=()=>{
@@ -131,6 +137,7 @@
     clear();show();throw Object.assign(new Error("برای ادامه وارد حساب خودت شو یا ثبت‌نام کن."),{status:401});
   };
   const request=async(path,payload,{account=false}={})=>{
+    if(typeof navigator!=="undefined"&&navigator.onLine===false)throw Object.assign(new Error("اینترنت قطع است؛ درخواست ارسال نشد. پس از اتصال دوباره تلاش کن."),{offline:true});
     const raw=account?"":identity().init_data||"";
     const endpoint=await connectionEndpoint();
     if(!/^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.app\.lhr\.life\/connect$/.test(endpoint))throw new Error("نشانی امن مرکز آماده نیست؛ اطلاعات ارسال نشد.");
@@ -156,15 +163,23 @@
   const loadProfile=async()=>{
     if(!window.JaheshPublic.hasSession())return;
     const revision=++profileRevision;
+    node("profile-refresh").disabled=true;node("profile-status").textContent="در حال دریافت نام و عکس پرونده…";
     try{
       const data=await request("/profile",{});
       if(revision!==profileRevision)return;
-      if(typeof data.first_name!=="string"||!data.first_name.trim()||typeof data.display_name!=="string")return;
+      if(typeof data.first_name!=="string"||!data.first_name.trim()||typeof data.display_name!=="string")throw new Error("پاسخ پروفایل معتبر نیست.");
       profile={first_name:data.first_name.slice(0,100),display_name:data.display_name.slice(0,400),
         avatar:typeof data.avatar==="string"&&/^data:image\/webp;base64,[A-Za-z0-9+/=]+$/.test(data.avatar)&&data.avatar.length<100000?data.avatar:""};
-      render();
-    }catch{if(revision===profileRevision){profile=null;render();}}
+      render();node("profile-status").textContent="مشخصات پرونده به‌روز است.";
+    }catch{
+      if(revision===profileRevision){profile=null;render();node("profile-status").textContent="نام و عکس پرونده دریافت نشد؛ اتصال را بررسی و به‌روزرسانی را بزن. ورود دوباره لزوماً لازم نیست.";}
+    }finally{if(revision===profileRevision)node("profile-refresh").disabled=false;}
   };
+  node("profile-refresh").onclick=()=>loadProfile();
+  node("my-reservations").onclick=()=>document.dispatchEvent(new CustomEvent("jahesh-my-reservations-open"));
+  const profilePhoto=document.getElementById("member-greeting-photo");
+  if(profilePhoto)profilePhoto.onerror=()=>{if(profile?.avatar){profile.avatar="";render();}};
+  window.addEventListener?.("online",()=>{if(!profile)loadProfile();});
   for(const name of ["register","member"]){node(name+"-details").ontoggle=()=>{if(node(name+"-details").open)node((name==="register"?"member":"register")+"-details").open=false;render();};}
   const acceptSession=result=>{
     if(!/^[A-Za-z0-9_-]{43}$/.test(result.token)||!(Date.parse(result.expires_at)>Date.now()))throw new Error("پاسخ ورود معتبر نیست.");

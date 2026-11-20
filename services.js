@@ -91,6 +91,12 @@
   });
   navigation.forEach(button => button.addEventListener("click", () => showView(button.dataset.go==="booking"?"services":button.dataset.go)));
   document.addEventListener("jahesh-booking-open",()=>showView("booking"));
+  document.addEventListener("jahesh-my-reservations-open",()=>{
+    if(document.dispatchEvent(new CustomEvent("jahesh-before-service-change",{cancelable:true}))===false)return;
+    if(dialog.open)dialog.close();
+    showView("booking");
+    document.dispatchEvent(new CustomEvent("jahesh-booking-section",{detail:{kind:null,title:"رزروها، پرداخت‌ها و بلیت‌های من",tracking:true}}));
+  });
   document.addEventListener("jahesh-library-open",()=>openService("library",document.querySelector('[data-service="library"]')));
   document.addEventListener("jahesh-account-open",()=>showView("account"));
   document.addEventListener("jahesh-account-return",()=>{showView(returnView==="home"?"services":returnView);document.dispatchEvent(new CustomEvent("jahesh-resume-service"));});
@@ -104,6 +110,7 @@
   const status = document.getElementById("feedback-status");
   document.getElementById("feedback-form").addEventListener("submit", event => {
     event.preventDefault();
+    if(window.JaheshFeedback){window.JaheshFeedback.submit();return;}
     const text = feedback.value.trim();
     if (!text || text.length > 1000) {
       result.hidden = true;

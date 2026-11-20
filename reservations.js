@@ -89,14 +89,16 @@
   document.addEventListener("jahesh-before-service-change",event=>{if(busy||pending||libraryBusy){event.preventDefault();message("ابتدا نتیجه عملیات قبلی را پیگیری کن.");}});
   document.addEventListener("jahesh-booking-section",event=>{
     if(busy||pending)return;
-    sectionKind=event.detail.kind;node("kind").value=sectionKind;
+    sectionKind=event.detail.kind;node("kind").value=sectionKind||"gamenet";
     node("kind").parentElement.hidden=true;
     document.getElementById("booking-title").textContent=event.detail.title;
     selectedShowId=null;selectedSeats.clear();form.hidden=true;registration.hidden=true;
     invalidateList();selectStep(false);
     node("load").hidden=sectionKind==="cinema";
-    node("load").textContent="انتخاب زمان و رزرو "+labels[sectionKind];
-    node("track").textContent="پیگیری رزروها و بلیت‌های من در "+labels[sectionKind];
+    node("load").textContent=sectionKind?"انتخاب زمان و رزرو "+labels[sectionKind]:"انتخاب خدمت و رزرو جدید";
+    node("track").textContent=sectionKind?"پیگیری رزروها و بلیت‌های من در "+labels[sectionKind]:"به‌روزرسانی همهٔ رزروها و بلیت‌های من";
+    node("kind").parentElement.hidden=Boolean(sectionKind);
+    if(event.detail.tracking){message("رسید و وضعیت پرداخت هر رزرو را در همان کارت ببین؛ ثبت رسید، تأیید پرداخت نیست.");node("track").onclick();return;}
     message(sectionKind==="cinema"?"فیلم و سانس دلخواه را انتخاب کن.":"برای انتخاب زمان و مشاهده رزروهای همین بخش، ادامه بده.");
   });
   const identity=()=>{
