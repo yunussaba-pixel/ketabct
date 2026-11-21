@@ -23,6 +23,7 @@
   <script src="./library_search.js?v=1-live-search" defer></script>
   <link rel="stylesheet" href="./seating.css?v=7-trailer-layout">
   <script src="./content.js?v=6-booking-hub" defer></script>
+  <script src="./tournaments.js?v=1-native" defer></script>
 </head>
 <body>
 <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -41,8 +42,17 @@
   <header class="topbar"><a class="brand" href="#home" aria-label="خانه جهش"><span class="brand-mark">ج</span><span><strong>جهش</strong><small>کتابخانه شهدای محمودآباد</small></span></a><span class="release">خدمات مرکز</span></header>
   <section id="member-greeting" class="member-greeting" hidden aria-label="حساب من"><img id="member-greeting-photo" width="48" height="48" alt="تصویر پروفایل من" hidden><span id="member-greeting-initial" aria-hidden="true"></span><strong id="member-greeting-name"></strong></section>
   <main id="main" tabindex="-1">
+    <section data-view="tournaments" hidden aria-labelledby="tournaments-title">
+      <button type="button" class="secondary" data-go="home">بازگشت به خانه</button>
+      <h1 id="tournaments-title">مسابقات بازیکده</h1>
+      <p>برنامه مسابقات، مراحل برگزاری، نتایج و گزارش‌های تصویری منتشرشده مرکز</p>
+      <button type="button" class="secondary" id="public-tournaments-refresh">به‌روزرسانی مسابقات</button>
+      <p id="public-tournaments-status" role="status" aria-live="polite"></p>
+      <div id="public-tournaments-list" class="service-list"></div>
+    </section>
     <section data-view="account" hidden aria-label="حساب من"><button type="button" class="secondary" data-go="home">بازگشت به خانه</button><aside id="web-account" aria-label="ورود و حساب من"></aside></section>
     <section data-view="home" aria-labelledby="home-title">
+      <button type="button" class="secondary" data-go="tournaments">مسابقات بازیکده؛ برنامه، نتایج و تصاویر</button>
       <div class="welcome"><span>یک مرکز؛ دنیایی تجربه</span><h1 id="home-title">امروز حالِ خوبت رو<br>از کجا شروع می‌کنی؟</h1><p>از کشف یک کتاب تا هیجان بازی و تماشای یک فیلم.</p></div>
       <button class="feature" type="button" data-service="games"><span><small>بازیکده جهش</small><strong>بازی، رفاقت، یک تجربهٔ تازه</strong><span class="feature-link">بازی‌ها را ببین ←</span></span><svg aria-hidden="true"><use href="#game"/></svg></button>
       <div class="section-heading"><h2>جهش، به سلیقهٔ تو</h2><button type="button" class="text-button" data-go="services">همهٔ خدمات ←</button></div>
@@ -51,6 +61,7 @@
         <button class="tile library" data-service="library"><svg aria-hidden="true"><use href="#book"/></svg><strong>کتابخانه</strong><small>همراهِ هر روزِ کشف</small></button>
         <button class="tile cafe" data-service="cafe"><svg aria-hidden="true"><use href="#cafe"/></svg><strong>کافه و دورهمی</strong><small>کمی مکث، کمی گفت‌وگو</small></button>
         <button class="tile events" data-service="events"><svg aria-hidden="true"><use href="#calendar"/></svg><strong>رویدادها</strong><small>بهانه‌های خوب کنار هم بودن</small></button>
+        <button class="tile events" data-service="tournaments"><svg aria-hidden="true"><use href="#game"/></svg><strong>مسابقات بازیکده</strong><small>ثبت‌نام، جدول و نتایج</small></button>
       </div>
       <a class="channel-card" href="https://eitaa.com/ketabct" target="_blank" rel="noopener noreferrer"><span class="channel-icon">↗</span><span><strong>از برنامه‌های مرکز جا نمونی</strong><small>خبرها، اکران‌ها و طرح‌های ویژه در کانال مرکز</small></span><b>عضویت ←</b></a>
       <button id="home-account-entry" type="button" class="secondary" data-go="account">ورود / ثبت‌نام</button>
