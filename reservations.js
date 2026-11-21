@@ -561,7 +561,7 @@
     const revision=++libraryRevision;
     node("library-loans").replaceChildren();node("library-status").textContent="در حال دریافت اطلاعات کتابخانه…";
     try{
-      const result=await call("library/status");if(revision!==libraryRevision)return;
+      const result=await call("library/status",{force_refresh:true});if(revision!==libraryRevision)return;
       const membership={active:"فعال",inactive:"غیرفعال",unknown:"نامشخص"};
       const expiry=result.membership_ends_on?libraryDate(result.membership_ends_on):"ثبت نشده";
       const captured=result.captured_at&&Number.isFinite(Date.parse(result.captured_at))?" · آخرین دریافت از سامانه کتابخانه مرکزی اصفهان: "+date(result.captured_at):"";
