@@ -565,7 +565,8 @@
       const membership={active:"فعال",inactive:"غیرفعال",unknown:"نامشخص"};
       const expiry=result.membership_ends_on?libraryDate(result.membership_ends_on):"ثبت نشده";
       const captured=result.captured_at&&Number.isFinite(Date.parse(result.captured_at))?" · آخرین دریافت از سامانه کتابخانه مرکزی اصفهان: "+date(result.captured_at):"";
-      node("library-status").textContent="عضویت: "+(membership[result.membership_status]||"نامشخص")+" · اعتبار تا: "+expiry+captured+" · "+result.notice;
+      node("library-status").textContent=(result.membership_status_label||("عضویت: "+(membership[result.membership_status]||"نامشخص")))+
+        " · اعتبار تا: "+expiry+captured+" · "+result.notice;
       const renewals=Array.isArray(result.renewals)?result.renewals:[];
       for(const renewal of renewals){
         const progress=document.createElement("article");progress.className="reservation-result";
@@ -600,7 +601,11 @@
         text(card,"h4",loan.book||"کتاب");
         if(loan.due_date)text(card,"p","سررسید: "+libraryDate(loan.due_date));
         if(loan.overdue_days)text(card,"p",number(loan.overdue_days)+" روز دیرکرد");
-        if(loan.barcode&&result.membership_status==="active"){
+        if(loan.barcode&&result.membership_status!=="active"){
+          text(card,"p",result.membership_status==="inactive"?
+            "عضویت غیرفعال است؛ درخواست تمدید ثبت نمی‌شود.":
+            "وضعیت عضویت رسمی هنوز تأیید نشده؛ ابتدا وضعیت را تازه کنید.");
+        } else if(loan.barcode&&result.membership_status==="active"){
           const pending=renewals.find(renewal=>renewal.barcode===loan.barcode&&["pending","claimed"].includes(renewal.status));
           if(pending){
             text(card,"p","درخواست این کتاب در صف است؛ برای دیدن نتیجه، وضعیت کتابخانه را تازه کن.");
