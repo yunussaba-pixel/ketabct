@@ -3,7 +3,6 @@
   if(document.getElementById("jahesh-host"))return;
   const launch=document.createElement("button");
   launch.type="button";launch.className="jahesh-host-launch";launch.textContent="✦ دستیار جهش";
-  const homeLaunch=document.getElementById("home-jahesh-assistant");
   launch.setAttribute("aria-controls","jahesh-host");launch.setAttribute("aria-expanded","false");
   const panel=document.createElement("aside");panel.id="jahesh-host";panel.className="jahesh-host";panel.hidden=true;
   panel.setAttribute("aria-label","راهنمای خدمات مرکز جهش");
@@ -11,9 +10,8 @@
   document.body.append(launch,panel);
   const input=panel.querySelector("textarea"),form=panel.querySelector("form"),messages=panel.querySelector(".host-messages"),status=panel.querySelector(".host-status");
   const consent=panel.querySelector(".host-consent");
-  let opener=launch;
-  const toggle=opened=>{panel.hidden=!opened;for(const button of [launch,homeLaunch])button?.setAttribute("aria-expanded",String(opened));if(opened)input.focus();else opener.focus();};
-  for(const button of [launch,homeLaunch])if(button)button.onclick=()=>{opener=button;toggle(panel.hidden);};
+  const toggle=opened=>{panel.hidden=!opened;launch.setAttribute("aria-expanded",String(opened));if(opened)input.focus();else launch.focus();};
+  launch.onclick=()=>toggle(panel.hidden);
   panel.querySelector(".host-close").onclick=()=>toggle(false);
   panel.addEventListener("keydown",event=>{if(event.key==="Escape")toggle(false);});
   const append=(body,question=false)=>{const item=document.createElement("p");item.className="host-message"+(question?" host-question":"");item.textContent=body;messages.append(item);while(messages.children.length>20)messages.firstElementChild.remove();messages.scrollTop=messages.scrollHeight;};
