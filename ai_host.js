@@ -2,19 +2,22 @@
 (() => {
   if(document.getElementById("jahesh-host"))return;
   const launch=document.createElement("button");
-  launch.type="button";launch.className="jahesh-host-launch";launch.textContent="✦ میزبان جهش";
+  launch.type="button";launch.className="jahesh-host-launch";launch.textContent="✦ دستیار جهش";
+  const homeLaunch=document.getElementById("home-jahesh-assistant");
   launch.setAttribute("aria-controls","jahesh-host");launch.setAttribute("aria-expanded","false");
   const panel=document.createElement("aside");panel.id="jahesh-host";panel.className="jahesh-host";panel.hidden=true;
   panel.setAttribute("aria-label","راهنمای خدمات مرکز جهش");
-  panel.innerHTML='<header><h2>میزبان جهش</h2><button type="button" class="host-close" aria-label="بستن میزبان">×</button></header><small>راهنمای خدمات مرکز؛ اطلاعات شخصی، رمز و کد تأیید نفرستید.</small><div class="host-topics"></div><div class="host-messages" role="log" aria-live="polite"></div><form><label for="host-question">پرسش شما</label><textarea id="host-question" maxlength="1200" required placeholder="چطور سانس بازی رزرو کنم؟"></textarea><label><input type="checkbox" class="host-consent"> اجازه می‌دهم پرسشم برای پاسخ هوش مصنوعی به سرویس بیرونی ارسال شود؛ بدون این انتخاب فقط راهنمای محلی فعال است.</label><button type="submit">پرسیدن از میزبان</button></form><small class="host-status" role="status">هیچ رزرو یا پرداختی توسط این گفت‌وگو انجام نمی‌شود.</small>';
+  panel.innerHTML='<header><h2>دستیار جهش</h2><button type="button" class="host-close" aria-label="بستن دستیار">×</button></header><small>راهنمای خدمات مرکز؛ اطلاعات شخصی، رمز و کد تأیید نفرستید.</small><div class="host-topics"></div><div class="host-messages" role="log" aria-live="polite"></div><form><label for="host-question">پرسش شما</label><textarea id="host-question" maxlength="1200" required placeholder="چطور سانس بازی رزرو کنم؟"></textarea><label><input type="checkbox" class="host-consent"> اجازه می‌دهم پرسشم برای پاسخ هوش مصنوعی به سرویس بیرونی ارسال شود؛ بدون این انتخاب فقط راهنمای محلی فعال است.</label><button type="submit">پرسیدن از دستیار</button></form><small class="host-status" role="status">هیچ رزرو یا پرداختی توسط این گفت‌وگو انجام نمی‌شود.</small>';
   document.body.append(launch,panel);
   const input=panel.querySelector("textarea"),form=panel.querySelector("form"),messages=panel.querySelector(".host-messages"),status=panel.querySelector(".host-status");
   const consent=panel.querySelector(".host-consent");
-  const toggle=opened=>{panel.hidden=!opened;launch.setAttribute("aria-expanded",String(opened));if(opened)input.focus();else launch.focus();};
-  launch.onclick=()=>toggle(panel.hidden);panel.querySelector(".host-close").onclick=()=>toggle(false);
+  let opener=launch;
+  const toggle=opened=>{panel.hidden=!opened;for(const button of [launch,homeLaunch])button?.setAttribute("aria-expanded",String(opened));if(opened)input.focus();else opener.focus();};
+  for(const button of [launch,homeLaunch])if(button)button.onclick=()=>{opener=button;toggle(panel.hidden);};
+  panel.querySelector(".host-close").onclick=()=>toggle(false);
   panel.addEventListener("keydown",event=>{if(event.key==="Escape")toggle(false);});
   const append=(body,question=false)=>{const item=document.createElement("p");item.className="host-message"+(question?" host-question":"");item.textContent=body;messages.append(item);while(messages.children.length>20)messages.firstElementChild.remove();messages.scrollTop=messages.scrollHeight;};
-  append("سلام! من میزبان جهش هستم. درباره خدمات مرکز راهنمایی می‌کنم. کدام بخش مدنظرتان است؟");
+  append("سلام! من دستیار جهش هستم. درباره خدمات مرکز راهنمایی می‌کنم. کدام بخش مدنظرتان است؟");
   for(const topic of ["بازیکده","سینما","کتابخانه","کافه","باشگاه","کلاس‌ها"]){const button=document.createElement("button");button.type="button";button.textContent=topic;button.onclick=()=>{input.value="درباره "+topic+" راهنمایی کن";input.focus();};panel.querySelector(".host-topics").append(button);}
   let busy=false;
   form.onsubmit=async event=>{
