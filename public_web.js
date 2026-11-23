@@ -25,6 +25,8 @@
     <h2>حساب من</h2><p id="web-account-intro">برای ادامه خدمات وارد حساب خودت شو یا ثبت‌نام کن.</p>
     <nav id="web-my-services" aria-label="خدمات حساب من" hidden><button id="web-my-reservations" type="button" class="primary">رزروها، پرداخت‌ها و بلیت‌های من</button><button type="button" data-service="cinema" class="secondary">فیلم‌ها و رزرو سینما</button><button type="button" data-service="games" class="secondary">رزرو بازیکده</button><button type="button" data-service="cafe" class="secondary">رزرو کافه</button><button type="button" data-service="library" class="secondary">عضویت و امانت‌های من</button></nav>
     <button id="web-profile-refresh" type="button" class="secondary" hidden>به‌روزرسانی نام و عکس پرونده</button><p id="web-profile-status" role="status" aria-live="polite"></p>
+    <button id="web-assistant" type="button" class="secondary" hidden>دستیار شخصی · فعالیت‌ها و مزایای من</button>
+    <section id="web-assistant-result" class="reservation-panel" hidden aria-live="polite"></section>
     <label id="web-remember-choice"><input id="web-remember" type="checkbox" checked> در این دستگاه شخصی وارد بمانم (تا ۳۰ روز). در دستگاه مشترک این گزینه را بردار.</label>
     <p id="web-account-status" role="status" aria-live="polite"></p>
     <nav id="web-entry-methods" aria-label="روش ورود"><button id="web-choose-member" type="button" class="secondary">عضو هستم؛ ورود با کد ملی و همراه</button><button id="web-choose-signup" type="button" class="secondary">عضو جدید؛ ثبت‌نام</button></nav>
@@ -92,7 +94,9 @@
     <details><summary>امنیت حساب</summary><p class="notice">ورود تازه، نشست قبلی را می‌بندد. خروج، لغو دسترسی یا پایان مهلت، ورود دوباره می‌خواهد. حساب سایت و برنامک ممکن است در دو فضای مرورگر جدا باشند؛ هر کدام یک‌بار ورود لازم دارند.</p></details></section>`;
   const node=name=>document.getElementById("web-"+name);
   const message=text=>{node("account-status").textContent=text;};
-  const clear=()=>{token="";expires="";profile=null;profileRevision++;node("profile-refresh").disabled=false;node("profile-status").textContent="";for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{};render();};
+  let assistantRevision=0;
+  const resetAssistant=()=>{assistantRevision++;node("assistant-result").replaceChildren();node("assistant-result").hidden=true;node("assistant").disabled=false;};
+  const clear=()=>{token="";expires="";profile=null;profileRevision++;resetAssistant();node("profile-refresh").disabled=false;node("profile-status").textContent="";for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{};render();};
   const render=()=>{
     const embedded=authMode!=="web"&&Boolean(signed());
     node("login-form").hidden=Boolean(token)||Boolean(node("register-details").open);node("register-details").hidden=true;node("member-details").hidden=Boolean(token)||entryMode!=="member";
@@ -108,6 +112,7 @@
     node("logout").hidden=!token;node("account-toggle").hidden=accountVisible;
     node("remember-choice").hidden=Boolean(token);
     node("my-services").hidden=!token&&!profile;
+    node("assistant").hidden=!token&&!embedded;
     node("profile-refresh").hidden=!token&&!signed();
     node("sms-login").hidden=Boolean(token);
     node("account-toggle").textContent=token?"حساب من / خروج":"ورود / ثبت‌نام";
@@ -160,6 +165,50 @@
   };
   window.JaheshPublic={identity,call:request,
     hasSession:()=>Boolean((authMode!=="web"&&signed())||(token&&Date.parse(expires)>Date.now()))};
+  node("assistant").onclick=async()=>{
+    const revision=++assistantRevision;
+    const panel=node("assistant-result");
+    node("assistant").disabled=true;
+    panel.hidden=false;panel.textContent="در حال دریافت فعالیت‌های پروندهٔ خودت…";
+    try{
+      const data=await request("/assistant/activity",{});
+      if(revision!==assistantRevision||!window.JaheshPublic.hasSession())return;
+      const add=(tag,text,parent=panel)=>{
+        const element=document.createElement(tag);
+        element.textContent=text;parent.append(element);
+      };
+      const number=value=>Number(value).toLocaleString("fa-IR");
+      const time=value=>value?new Date(value).toLocaleString("fa-IR"):"—";
+      const labels={active:"فعال",confirmed:"تأییدشده",closed:"پایان‌یافته",open:"در جریان",cancelled:"لغوشده",
+        used:"مصرف‌شده",expired:"منقضی",delivered:"تحویل‌شده",pending:"در انتظار"};
+      const status=value=>labels[value]||"برای جزئیات سوابق را ببین";
+      const group=(label,items,format)=>{
+        add("h3",label);
+        if(!items.length){add("p","موردی ثبت نشده است.");return;}
+        const list=document.createElement("ul");panel.append(list);
+        for(const item of items)add("li",format(item),list);
+      };
+      panel.replaceChildren();
+      add("h3","مانده حساب و باشگاه");
+      add("p",`بدهی: ${number(data.balance.debt)} تومان · اعتبار: ${number(data.balance.credit)} تومان · امتیاز: ${number(data.balance.points)} · سطح: ${data.balance.tier} · تخفیف مراجعهٔ بعد: ${number(data.balance.next_discount_percent)}٪`);
+      add("p",`زمان دریافت: ${time(data.as_of)} · حداکثر ۱۵ مورد اخیر در هر گروه`);
+      group("جلسه‌های بازیکده",data.games,row=>`${row.device} · ${time(row.started_at)} · ${row.minutes===null?status(row.status):number(row.minutes)+" دقیقه"}`);
+      group("رزروهای بازیکده",data.game_reservations,row=>`${row.device} · ${time(row.starts_at)} · ${status(row.status)}`);
+      group("پرداخت‌های ثبت‌شده روی فاکتور",data.payments,row=>`${number(row.amount)} تومان · فاکتور ${number(row.invoice)} · ${time(row.recorded_at)}`);
+      group("جوایز",data.awards,row=>`${row.name} · مانده ${number(row.remaining)} · ${status(row.status)} · انقضا: ${time(row.expires_at)}`);
+      const shortcut=(label,open)=>{
+        const button=document.createElement("button");
+        button.type="button";button.className="secondary";button.textContent=label;
+        button.addEventListener("click",open);panel.append(button);
+      };
+      shortcut("وضعیت عضویت، امانت و درخواست تمدید",()=>node("my-services").querySelector('[data-service="library"]').click());
+      shortcut("رزروها، پرداخت‌ها و بلیت‌های من",()=>node("my-reservations").click());
+    }catch{
+      if(revision===assistantRevision)panel.textContent="دریافت پرونده ممکن نشد. اتصال یا ورود خودت را بررسی و دوباره تلاش کن.";
+    }finally{
+      if(revision===assistantRevision)node("assistant").disabled=false;
+    }
+  };
   const loadProfile=async()=>{
     if(!window.JaheshPublic.hasSession())return;
     const revision=++profileRevision;
@@ -183,7 +232,7 @@
   for(const name of ["register","member"]){node(name+"-details").ontoggle=()=>{if(node(name+"-details").open)node((name==="register"?"member":"register")+"-details").open=false;render();};}
   const acceptSession=result=>{
     if(!/^[A-Za-z0-9_-]{43}$/.test(result.token)||!(Date.parse(result.expires_at)>Date.now()))throw new Error("پاسخ ورود معتبر نیست.");
-    profile=null;profileRevision++;
+    profile=null;profileRevision++;resetAssistant();
     token=result.token;expires=result.expires_at;authMode="web";memberChallenge="";
     phoneChallenge="";phoneProof="";verifiedPhone="";phoneStage="start";
     node("phone-code-form").elements.namedItem("code").value="";
