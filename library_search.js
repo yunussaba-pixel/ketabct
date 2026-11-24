@@ -11,7 +11,7 @@
     output.setAttribute("aria-label","نتایج جست‌وجوی کتاب");
     node("books").append(output);
     const status=node("catalog-status");
-    status.textContent="در حال جست‌وجوی مستقیم و دریافت نتایج از شهرداری…";
+    status.textContent="در حال جست‌وجوی مستقیم و دریافت نتایج از سامانه کتابخانه مرکزی اصفهان…";
     controller=new AbortController();
     const activeController=controller;
     let root="";

@@ -24,6 +24,7 @@
       const data=await response.json();
       if(!data.sections||!Array.isArray(data.shows))throw new Error("پاسخ مرکز معتبر نیست.");
       document.dispatchEvent(new CustomEvent("jahesh-center-content",{detail:data.sections}));
+      document.dispatchEvent(new CustomEvent("jahesh-center-builder",{detail:data.builder||{}}));
       const films=new Map();
       for(const show of data.shows){
         if(!Number.isSafeInteger(show.id)||!Number.isFinite(Date.parse(show.starts_at)))continue;

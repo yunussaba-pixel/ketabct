@@ -96,7 +96,7 @@
   const message=text=>{node("account-status").textContent=text;};
   let assistantRevision=0;
   const resetAssistant=()=>{assistantRevision++;node("assistant-result").replaceChildren();node("assistant-result").hidden=true;node("assistant").disabled=false;};
-  const clear=()=>{token="";expires="";profile=null;profileRevision++;resetAssistant();node("profile-refresh").disabled=false;node("profile-status").textContent="";for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{};render();};
+  const clear=()=>{token="";expires="";profile=null;profileRevision++;resetAssistant();node("profile-refresh").disabled=false;node("profile-status").textContent="";for(const storage of [durableStorage(),temporaryStorage()])try{storage?.removeItem("jahesh-public-session");}catch{};render();document.dispatchEvent(new CustomEvent("jahesh-member-session-reset"));};
   const render=()=>{
     const embedded=authMode!=="web"&&Boolean(signed());
     node("login-form").hidden=Boolean(token)||Boolean(node("register-details").open);node("register-details").hidden=true;node("member-details").hidden=Boolean(token)||entryMode!=="member";
@@ -220,6 +220,7 @@
       profile={first_name:data.first_name.slice(0,100),display_name:data.display_name.slice(0,400),
         avatar:typeof data.avatar==="string"&&/^data:image\/webp;base64,[A-Za-z0-9+/=]+$/.test(data.avatar)&&data.avatar.length<100000?data.avatar:""};
       render();node("profile-status").textContent="مشخصات پرونده به‌روز است.";
+      document.dispatchEvent(new CustomEvent("jahesh-profile-ready"));
     }catch{
       if(revision===profileRevision){profile=null;render();node("profile-status").textContent="نام و عکس پرونده دریافت نشد؛ اتصال را بررسی و به‌روزرسانی را بزن. ورود دوباره لزوماً لازم نیست.";}
     }finally{if(revision===profileRevision)node("profile-refresh").disabled=false;}

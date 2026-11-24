@@ -30,6 +30,15 @@
       <p id="reservation-tracking-status" role="status" aria-live="polite"></p><div id="reservation-list"></div></section></section>`;
   const node=id=>document.getElementById("reservation-"+id);
   const form=node("form"),status=node("status");
+  const enforceGamenetDuration=()=>{
+    const control=node("minutes");
+    const gamenet=node("kind").value==="gamenet";
+    control.min=gamenet?"60":"1";
+    control.max=gamenet?"60":"1440";
+    control.value=gamenet?"60":(control.value||"60");
+    control.readOnly=gamenet;
+    control.classList.toggle("gamenet-duration",gamenet);
+  };
   const labels={gamenet:"بازیکده",cafe:"کافه",cinema:"سینما"};
   const bookingThemes={
     gamenet:["game","دستگاه و مدت بازی را انتخاب کن؛ زمان‌های قابل درخواست را از مرکز بگیر.","دستگاه"],
@@ -158,6 +167,8 @@
   };
   const resource=()=>catalog?.resources.find(row=>row.kind===node("kind").value&&String(row.id)===node("resource").value);
   let availabilityRevision=0;
+  node("availability").insertAdjacentHTML("afterbegin",'<label><input id="reservation-audience-consent" type="checkbox"> اگر پرونده من بانو است، با حضور در سانس آقایان برای همین رزرو رضایت دارم.</label>');
+  node("audience-consent").addEventListener("change",()=>{availabilityRevision++;node("slots").replaceChildren();node("slots-status").textContent="شرایط حضور تغییر کرد؛ زمان‌های مجاز را دوباره بررسی کن.";});
   const clearAvailability=()=>{
     availabilityRevision++;node("slots").replaceChildren();node("slots-status").textContent="روز و مدت بازی را مشخص کن و «نمایش زمان‌ها» را بزن.";
     node("availability").hidden=resource()?.kind!=="gamenet";
@@ -166,7 +177,7 @@
     if(busy||pending||resource()?.kind!=="gamenet")return;
     if(!node("date").value||!Number.isInteger(Number(node("minutes").value))||Number(node("minutes").value)<1){node("slots-status").textContent="روز و مدت معتبر را انتخاب کن.";return;}
     const revision=++availabilityRevision;
-    const availability={resource_id:resource().id,local_date:node("date").value,minutes:Number(node("minutes").value),window_start:node("search-start").value,window_end:node("search-end").value};
+    const availability={resource_id:resource().id,local_date:node("date").value,minutes:Number(node("minutes").value),window_start:node("search-start").value,window_end:node("search-end").value,audience_consent:node("audience-consent").checked};
     node("search").disabled=true;node("slots").replaceChildren();node("slots-status").textContent="در حال بررسی زمان‌ها…";
     try{
       const result=await call("availability",{availability});
@@ -193,6 +204,7 @@
     container.querySelectorAll("[data-reservation-action]").forEach(button=>{button.disabled=busy||Boolean(pending);});
   };
   const estimate=()=>{
+    enforceGamenetDuration();
     const row=resource();node("consent").checked=false;
     node("slots").querySelectorAll("[data-slot-time]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.slotTime===node("time").value)));
     if(!row){node("estimate").textContent="گزینه‌ای برای این بخش عرضه نشده است؛ با مرکز تماس بگیر.";return;}
@@ -425,7 +437,7 @@
     }catch(error){message(error.message);}finally{busy=false;sync();}
   };
   node("retry").onclick=()=>{if(pending&&!busy)execute();};
-  node("kind").onchange=selectResources;
+  node("kind").onchange=()=>{enforceGamenetDuration();selectResources();};
   node("resource").addEventListener("change",selectSeats);
   for(const key of ["resource","date","time","minutes","quantity"])node(key).addEventListener("change",estimate);
   for(const key of ["resource","date","minutes","search-start","search-end"])node(key).addEventListener("change",clearAvailability);
@@ -436,7 +448,7 @@
       if(selectedSeats.size!==booking.quantity){message("برای هر بلیت دقیقاً یک صندلی آزاد انتخاب کن.");return;}
       booking.seat_codes=Array.from(selectedSeats);
     }
-    if(row.kind!=="cinema")Object.assign(booking,{local_date:node("date").value,local_time:node("time").value,minutes:Number(node("minutes").value)});
+    if(row.kind!=="cinema")Object.assign(booking,{local_date:node("date").value,local_time:node("time").value,minutes:Number(node("minutes").value),audience_consent:node("audience-consent").checked});
     write("book",{booking});
   };
   const libraryPanel=document.createElement("section");
