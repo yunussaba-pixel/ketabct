@@ -4,6 +4,7 @@
   const host=()=>window.JaheshHost;
   const active=()=>window.JaheshPublic?.hasSession?.()===true;
   const call=(path,payload={})=>window.JaheshPublic.call("/assistant/"+path,payload);
+  const receive=async(path,payload,renderResult)=>{const current=revision;const data=await call(path,payload);if(current===revision&&active())renderResult(data);};
   const number=value=>Number(value||0).toLocaleString("fa-IR");
   const moment=value=>{
     if(!value)return "نامشخص";
@@ -34,7 +35,7 @@
       if(data.membership_elapsed_days_local!==null)text(parent,"p",`${number(data.membership_elapsed_days_local)} روز از شروع عضویت ثبت‌شده در جهش گذشته است (اطلاعات محلی).`);
       for(const loan of library.loans){
         const row=text(parent,"div",`${loan.book} · سررسید: ${moment(loan.due_date)}${loan.overdue_days?" · "+number(loan.overdue_days)+" روز دیرکرد":""}`);
-        if(library.can_request_renewal)button(row,"درخواست تمدید همین کتاب",async()=>showPreview(await call("renewal-preview",{barcode:loan.barcode})));
+        if(library.can_request_renewal)button(row,"درخواست تمدید همین کتاب",()=>receive("renewal-preview",{barcode:loan.barcode},showPreview));
       }
     }
     text(parent,"p",library.notice||"وضعیت کتابخانه هنوز تأیید نشده است.");
@@ -91,9 +92,9 @@
             const check=labelInput(seats,seat.code,"checkbox");selected.push([seat.code,check]);
           }
         }
-        button(item,"بررسی مبلغ و پیش‌نمایش رزرو",async()=>showPreview(await call("preview",{booking:{
+        button(item,"بررسی مبلغ و پیش‌نمایش رزرو",()=>receive("preview",{booking:{
           request_key:crypto.randomUUID(),kind:"cinema",resource_id:resource.id,quantity:Number(quantity.value),
-          seat_codes:selected.filter(([,check])=>check.checked).map(([code])=>code)}})));
+          seat_codes:selected.filter(([,check])=>check.checked).map(([code])=>code)}},showPreview));
       }else{
         text(item,"p",`تعرفه یک ساعت: ${number(resource.hourly_rate)} تومان`);
         const day=labelInput(item,"روز رزرو (شمسی)","date",data.local_date);
@@ -106,9 +107,9 @@
           slots.replaceChildren();text(slots,"p",result.availability.notice);
           if(result.availability.live_session_notice)text(slots,"p",result.availability.live_session_notice);
           if(!result.availability.items.length)text(slots,"p","در این بازه، سانس مجاز و بدون تداخل پیدا نشد.");
-          for(const slot of result.availability.items)button(slots,slot.local_time,async()=>showPreview(await call("preview",{booking:{
+          for(const slot of result.availability.items)button(slots,slot.local_time,()=>receive("preview",{booking:{
             request_key:crypto.randomUUID(),kind:"gamenet",resource_id:resource.id,local_date:result.availability.local_date,
-            local_time:slot.local_time,minutes:60,audience_consent:consent.checked}})));
+            local_time:slot.local_time,minutes:60,audience_consent:consent.checked}},showPreview));
         });
         if(typeof jalaliPickerScan==="function")jalaliPickerScan(item);
       }
@@ -121,7 +122,7 @@
     const parent=card();text(parent,"p",data.answer);
     if(data.kind==="search"||data.kind==="books"){
       const query=labelInput(parent,"موضوع، عنوان یا نویسنده","text");query.maxLength=200;
-      button(parent,"جست‌وجو در فهرست دریافت‌شده مرکز",async()=>render(await call("chat",{message:"جستجوی کتاب",query:query.value})));
+      button(parent,"جست‌وجو در فهرست دریافت‌شده مرکز",()=>receive("chat",{message:"جستجوی کتاب",query:query.value},render));
       for(const book of data.books?.items||[])text(parent,"p",`${book.title} · ${book.author||"نویسنده نامشخص"} · ${book.fresh?"وضعیت در زمان دریافت گزارش":"اطلاعات قدیمی؛ موجودی تأیید نشده"}`);
       button(parent,"جست‌وجوی زنده سامانه کتابخانه مرکزی اصفهان و همه شعب",()=>document.dispatchEvent(new CustomEvent("jahesh-library-open")));
     }
@@ -143,7 +144,7 @@
       if(!active()||!host())return false;
       if(busy)throw new Error("ابتدا منتظر نتیجه درخواست قبلی بمان.");
       busy=true;const current=revision;
-      try{const data=await call("chat",{message});if(current===revision&&active()){host().append(message,true);render(data);host().status.textContent="اطلاعات پرونده فقط در مرکز پردازش شد؛ نتیجه عملیات را در حساب خودت پیگیری کن.";}return true;}
+      try{const data=await call("chat",{message});if(data.kind==="guide")return false;if(current===revision&&active()){host().append(message,true);render(data);host().status.textContent="اطلاعات پرونده فقط در مرکز پردازش شد؛ نتیجه عملیات را در حساب خودت پیگیری کن.";}return true;}
       finally{busy=false;}
     },welcome
   };
