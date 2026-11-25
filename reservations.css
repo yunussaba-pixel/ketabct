@@ -44,3 +44,4 @@
 [data-booking-theme="cinema"] .public-showtime .primary{background:var(--booking-bright)}
 [data-booking-theme="cinema"] #reservation-seats label:has(input:checked){color:#fff;background:var(--booking-ink);border-color:var(--booking-ink)}
 @media(max-width:345px){.booking-choices{gap:5px}.booking-choices button{padding:8px;min-height:100px}.booking-choices b{display:none}.booking-stage{padding:10px}}
+.reservation-duration{display:flex;align-items:center;gap:8px;direction:ltr}.reservation-duration input{text-align:center;min-width:0;font-weight:800}.reservation-duration button{flex:0 0 48px;font-size:24px;font-weight:800}.reservation-duration+small{display:block;line-height:1.8;margin-top:6px}

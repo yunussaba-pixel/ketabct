@@ -16,7 +16,7 @@
     <form id="reservation-form" hidden><div class="booking-flow" aria-label="مسیر رزرو"><span>۱ · انتخاب</span><span>۲ · مرور هزینه</span><span>۳ · ثبت درخواست</span></div>
       <section class="booking-stage"><h2>انتخاب رزرو</h2><label>بخش<select id="reservation-kind"><option value="gamenet">بازیکده</option><option value="cafe">کافه</option><option value="cinema">سینما</option></select></label>
       <label><span id="reservation-resource-caption">گزینهٔ رزرو</span><select id="reservation-resource" required></select></label>
-      <div id="reservation-window" class="reservation-grid booking-window"><label>روز (شمسی)<input id="reservation-date" type="date" required></label><label>ساعت محلی مرکز<input id="reservation-time" type="time" required></label><label>مدت (دقیقه)<input id="reservation-minutes" type="number" required min="1" max="1440" value="60"></label></div>
+      <div id="reservation-window" class="reservation-grid booking-window"><label>روز (شمسی)<input id="reservation-date" type="date" required></label><label>ساعت محلی مرکز<input id="reservation-time" type="time" required></label><div><label for="reservation-minutes">مدت (دقیقه)</label><div class="reservation-duration"><button id="reservation-duration-less" type="button" aria-label="کاهش مدت رزرو">−</button><input id="reservation-minutes" type="number" required min="60" max="240" step="30" value="60"><button id="reservation-duration-more" type="button" aria-label="افزایش مدت رزرو">＋</button></div><small id="reservation-duration-help"></small></div></div>
       <fieldset id="reservation-availability" hidden><legend>زمان‌های بدون تداخل</legend><button id="reservation-search" class="secondary" type="button">نمایش زمان‌های قابل درخواست</button><details><summary>تغییر بازهٔ جست‌وجو</summary><div class="reservation-grid"><label>جست‌وجو از ساعت<input id="reservation-search-start" type="time" value="09:00"></label><label>تا ساعت<input id="reservation-search-end" type="time" value="23:00"></label></div></details><p id="reservation-slots-status" role="status" aria-live="polite"></p><div id="reservation-slots" class="reservation-seats"></div></fieldset>
       <label id="reservation-quantity-label">تعداد مهمان یا بلیت<input id="reservation-quantity" type="number" min="1" max="100" value="1" required></label>
       <fieldset id="reservation-seating" hidden><legend>صندلی‌های آزاد را انتخاب کن</legend><div id="reservation-seats" class="reservation-seats"></div><p id="reservation-seat-summary" aria-live="polite"></p></fieldset>
@@ -30,13 +30,26 @@
       <p id="reservation-tracking-status" role="status" aria-live="polite"></p><div id="reservation-list"></div></section></section>`;
   const node=id=>document.getElementById("reservation-"+id);
   const form=node("form"),status=node("status");
-  const enforceGamenetDuration=()=>{
+  let durationPolicySignature="";
+  const enforceGamenetDuration=(reset=false)=>{
     const control=node("minutes");
     const gamenet=node("kind").value==="gamenet";
-    control.min=gamenet?"60":"1";
-    control.max=gamenet?"60":"1440";
-    control.value=gamenet?"60":(control.value||"60");
-    control.readOnly=gamenet;
+    const settings=catalog?.settings||{};
+    control.min=gamenet?String(Math.max(60,Number(settings.min_gamenet_minutes)||60)):"1";
+    control.max=gamenet?String(Number(settings.max_gamenet_minutes)||240):"1440";
+    control.step=gamenet?String(Number(settings.gamenet_duration_step)||30):"1";
+    const signature=JSON.stringify([gamenet,control.min,control.max,control.step,settings.default_gamenet_minutes]);
+    if(reset&&signature!==durationPolicySignature){
+      if(gamenet)control.value=String(Number(settings.default_gamenet_minutes)||60);
+      durationPolicySignature=signature;
+    }
+    if(reset&&(!control.value||Number(control.value)<Number(control.min)||Number(control.value)>Number(control.max))){
+      control.value=String(gamenet?(Number(settings.default_gamenet_minutes)||60):60);
+    }
+    control.readOnly=false;
+    node("duration-help").textContent=gamenet?`شروع از ${number(control.min)} دقیقه؛ افزایش هر بار ${number(control.step)} دقیقه، تا ${number(control.max)} دقیقه.`:"مدت استفاده به دقیقه";
+    node("duration-less").disabled=Number(control.value)<=Number(control.min);
+    node("duration-more").disabled=Number(control.value)>=Number(control.max);
     control.classList.toggle("gamenet-duration",gamenet);
   };
   const labels={gamenet:"بازیکده",cafe:"کافه",cinema:"سینما"};
@@ -212,13 +225,14 @@
     node("seat-summary").textContent="انتخاب شده: "+number(selectedSeats.size)+" از "+number(node("quantity").value)+" صندلی";
     node("window").hidden=!timed;node("quantity-label").hidden=kind==="gamenet";
     for(const key of ["date","time","minutes"])node(key).required=timed;
-    const min=row.min_minutes||catalog.settings.min_gamenet_minutes,max=row.max_minutes||catalog.settings.max_gamenet_minutes;
-    node("minutes").min=min;node("minutes").max=max;
+    if(kind!=="gamenet"){
+      node("minutes").min=row.min_minutes||1;node("minutes").max=row.max_minutes||1440;
+    }
     node("quantity").max=kind==="cafe"?row.capacity:catalog.settings.max_cinema_quantity;
-    const total=timed?Math.ceil(row.hourly_rate*Number(node("minutes").value)/60):row.price*Number(node("quantity").value);
+    const total=timed?Math.round(row.hourly_rate*Number(node("minutes").value)/60):row.price*Number(node("quantity").value);
     const mode=row.payment_mode||catalog.settings[kind+"_payment_mode"];
-    const percent=mode==="full"?100:row.deposit_percent||catalog.settings[kind+"_deposit_percent"];
-    const due=mode==="none"?0:Math.ceil(total*percent/100);
+    const percent=mode==="full"?100:row.deposit_percent??catalog.settings[kind+"_deposit_percent"];
+    const due=mode==="none"?0:Math.round(total*percent/100);
     const schedule=timed?[libraryDate(node("date").value),node("time").value,number(node("minutes").value)+" دقیقه"].filter(Boolean).join(" · "):date(row.starts_at)+" · "+number(row.remaining)+" ظرفیت باقی‌مانده";
     node("estimate").textContent=row.label+"\n"+schedule+"\n"+
       "برآورد کل: "+number(total)+" تومان\n"+(mode==="none"?"بدون پیش‌پرداخت":"پرداخت لازم: "+number(due)+" تومان")+
@@ -226,6 +240,7 @@
       (kind==="cafe"?"\nنرخ برای کل میز یا سالن است، نه هر نفر. تعداد مهمان فقط برای بررسی ظرفیت است.":"");
   };
   const selectResources=()=>{
+    enforceGamenetDuration(true);
     const options=catalog.resources.filter(row=>row.kind===node("kind").value).map(row=>{
       const option=document.createElement("option");option.value=row.id;option.textContent=row.label+(row.starts_at?" · "+date(row.starts_at):"");return option;
     });
@@ -437,9 +452,15 @@
     }catch(error){message(error.message);}finally{busy=false;sync();}
   };
   node("retry").onclick=()=>{if(pending&&!busy)execute();};
-  node("kind").onchange=()=>{enforceGamenetDuration();selectResources();};
+  node("kind").onchange=()=>{enforceGamenetDuration(true);selectResources();};
   node("resource").addEventListener("change",selectSeats);
   for(const key of ["resource","date","time","minutes","quantity"])node(key).addEventListener("change",estimate);
+  node("minutes").addEventListener("input",()=>{clearAvailability();estimate();});
+  for(const [name,direction] of [["duration-less",-1],["duration-more",1]])node(name).onclick=()=>{
+    const control=node("minutes"),step=Number(control.step)||1;
+    control.value=String(Math.max(Number(control.min),Math.min(Number(control.max),(Number(control.value)||Number(control.min))+direction*step)));
+    clearAvailability();estimate();
+  };
   for(const key of ["resource","date","minutes","search-start","search-end"])node(key).addEventListener("change",clearAvailability);
   form.onsubmit=event=>{
     event.preventDefault();const row=resource();if(!row)return;
