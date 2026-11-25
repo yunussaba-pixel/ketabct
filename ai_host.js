@@ -11,6 +11,11 @@
   document.body.append(launch,panel);
   const input=panel.querySelector("textarea"),form=panel.querySelector("form"),messages=panel.querySelector(".host-messages"),status=panel.querySelector(".host-status");
   const quota=panel.querySelector(".host-quota");
+  const send=form.querySelector("button"),askModel=document.createElement("button");
+  send.textContent="پرسش از مرکز";
+  askModel.type="submit";askModel.textContent="راهنمای هوش مصنوعی";
+  askModel.title="فقط موضوع و نوع پرسش به مدل ارسال می‌شود؛ برای وضعیت و رزرو شخصی، پرسش از مرکز را بزنید.";
+  form.querySelector(".host-send").append(askModel);
   const publicSite=typeof connectionEndpoint==="function";
   let visitor;
   if(publicSite){
@@ -33,10 +38,11 @@
   form.onsubmit=async event=>{
     event.preventDefault();if(busy||!input.value.trim())return;
     const message=input.value.trim();
-    busy=true;form.querySelector("button").disabled=true;
+    const preferAI=event.submitter===askModel;
+    busy=true;send.disabled=askModel.disabled=true;
     status.textContent="در حال دریافت راهنمایی…";
     try{
-      if(typeof window!=="undefined"&&await window.JaheshMemberAssistant?.ask(message)){
+      if(!preferAI&&typeof window!=="undefined"&&await window.JaheshMemberAssistant?.ask(message)){
         input.value="";return;
       }
       let base="";
@@ -48,7 +54,7 @@
       }else{
         headers["X-Jahesh-Request"]="1";
       }
-      const response=await fetch(base+"/host/chat",{method:"POST",headers,credentials:"omit",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(25000),body:JSON.stringify({message,visitor_id:visitor})});
+      const response=await fetch(base+"/host/chat",{method:"POST",headers,credentials:"omit",redirect:"error",cache:"no-store",signal:AbortSignal.timeout(25000),body:JSON.stringify({message,visitor_id:visitor,...(preferAI?{prefer_ai:true}:{})})});
       if(!response.ok){
         status.textContent=({422:"پرسش را بدون شماره، رمز، کد تأیید و اطلاعات شخصی بنویسید.",429:"تعداد پرسش‌ها به سقف رسیده است؛ بعداً دوباره تلاش کنید."})[response.status]||"دریافت پاسخ از مرکز ممکن نشد؛ دوباره تلاش کنید.";
         return;
@@ -58,6 +64,6 @@
       append(message,true);append(data.answer);input.value="";status.textContent=data.notice;
       if(publicSite&&data.quota)quota.textContent=data.quota.remaining.toLocaleString("fa-IR")+" پرسش باقی‌مانده امروز";
     }catch{status.textContent="اتصال به دستیار ممکن نشد؛ دوباره تلاش کنید یا از بخش خدمات استفاده کنید.";}
-    finally{busy=false;form.querySelector("button").disabled=false;}
+    finally{busy=false;send.disabled=askModel.disabled=false;}
   };
 })();

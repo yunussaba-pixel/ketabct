@@ -60,7 +60,7 @@ body[data-host-surface="desktop"] :is(.jahesh-host,.jahesh-host-launch){
 .jahesh-host form{display:grid;gap:7px;margin:12px 0 0}
 .jahesh-host label{display:block;font-weight:800;margin:0;color:var(--host-dark)}
 .jahesh-host textarea{width:100%;min-height:64px;resize:vertical;border:1px solid var(--host-line);border-radius:13px;padding:9px;background:#fff;color:#291e29}
-.jahesh-host .host-send{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.jahesh-host .host-send{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
 .jahesh-host .host-quota{font-size:13px;color:var(--host-dark)}
 .jahesh-host button[type=submit]{min-height:44px;background:var(--host-accent);color:#fff}
 .jahesh-host button[type=submit]:hover{background:var(--host-dark)}
