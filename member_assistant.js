@@ -30,6 +30,26 @@
     const balance=data.activity?.balance;
     if(balance)text(parent,"p",`بدهی: ${number(balance.debt)} تومان · اعتبار: ${number(balance.credit)} تومان · امتیاز: ${number(balance.points)} · سطح: ${balance.tier}`);
     const library=data.library||{};
+    const financial=library.financial||{};
+    if(library.fresh){
+      const amount=value=>value==null?"نامشخص؛ نیازمند دریافت رسمی":number(value/10)+" تومان";
+      text(parent,"p",`جریمهٔ رسمی: ${amount(financial.unpaid_fines_rial)} · بدهی رسمی: ${amount(financial.total_debt_rial)}`);
+      if(library.loan_status==="no_loans")text(parent,"p","طبق آخرین دریافت رسمی، کتابی در امانت شما نیست.");
+    }
+    button(parent,"درخواست‌های اطلاع‌رسانی بازگشت کتاب من",async()=>{
+      const current=revision;
+      const result=await window.JaheshPublic.call("/reservations/library/watches/list",{});
+      if(current!==revision||!active())return;
+      const output=card();text(output,"h3","اطلاع‌رسانی بازگشت کتاب");
+      for(const watch of result.items){
+        const row=text(output,"div",`${watch.title} · ${{waiting:"منتظر موجودی تازه",notified:"اعلان در مرکز ثبت شده",cancelled:"لغوشده"}[watch.status]||watch.status}`);
+        if(watch.status!=="cancelled")button(row,"لغو اطلاع‌رسانی",async()=>{
+          await window.JaheshPublic.call(`/reservations/library/watches/${encodeURIComponent(watch.id)}/cancel`,{});
+          if(current===revision&&active())text(row,"p","درخواست لغو شد؛ اعلان ارسال‌نشده دیگر قابل ارسال نیست.");
+        });
+      }
+      if(!result.items.length)text(output,"p","درخواستی ثبت نشده است.");
+    });
     if(library.fresh){
       text(parent,"p",`${library.membership_status_label} · اعتبار تا ${moment(library.membership_ends_on)} · ${number(library.loans.length)} کتاب امانت`);
       if(data.membership_elapsed_days_local!==null)text(parent,"p",`${number(data.membership_elapsed_days_local)} روز از شروع عضویت ثبت‌شده در جهش گذشته است (اطلاعات محلی).`);
@@ -123,7 +143,34 @@
     if(data.kind==="search"||data.kind==="books"){
       const query=labelInput(parent,"موضوع، عنوان یا نویسنده","text");query.maxLength=200;
       button(parent,"جست‌وجو در فهرست دریافت‌شده مرکز",()=>receive("chat",{message:"جستجوی کتاب",query:query.value},render));
-      for(const book of data.books?.items||[])text(parent,"p",`${book.title} · ${book.author||"نویسنده نامشخص"} · ${book.fresh?"وضعیت در زمان دریافت گزارش":"اطلاعات قدیمی؛ موجودی تأیید نشده"}`);
+      for(const book of data.books?.items||[]){
+        const row=text(parent,"section","");
+        text(row,"h3",book.title);text(row,"p",book.author||"نویسنده نامشخص");
+        text(row,"p",book.fresh?({available:"موجود در زمان گزارش",on_loan:"در امانت",unavailable:"فعلاً قابل امانت نیست"}[book.availability]||"موجودی تأیید نشده"):"اطلاعات قدیمی؛ موجودی تأیید نشده");
+        if(book.expected_return&&book.fresh)text(row,"p",`سررسید ثبت‌شده: ${moment(book.expected_return)}؛ بازگشت تضمین نیست.`);
+        if(book.subject)text(row,"p","موضوع: "+book.subject);
+        if(book.summary)text(row,"p",book.summary);
+        for(const heading of book.contents||[])text(row,"p",heading);
+        if(/^\d{1,6}:\d{1,12}$/.test(book.record_id))button(row,"بررسی موجودی نسخه در سامانه رسمی",async()=>{
+          const current=revision;
+          const result=await window.JaheshPublic.call("/reservations/library/watches/check-availability",{record_id:book.record_id});
+          if(current!==revision||!active())return;
+          if(result.status==="ready")render({kind:"books",answer:result.notice,books:{items:[result.book]}});
+          else text(row,"p",result.notice);
+        });
+        if(book.fresh&&book.availability==="on_loan"){
+          const label=text(row,"label","روش اطلاع‌رسانی بازگشت کتاب"),channel=document.createElement("select");label.append(channel);
+          for(const [value,title] of [["auto","خودکار: مسیر فعال پرونده؛ در نبود اتصال، داخل برنامه"],["eitaa","ایتا: فقط حساب متصل به پرونده"],["rubika","روبیکا: فقط حساب متصل به پرونده"],["sms","پیامک: شمارهٔ ثبت‌شده در پرونده"]]){
+            const option=text(channel,"option",title);option.value=value;
+          }
+          text(row,"p","با تأیید زیر، دریافت اعلان همین کتاب را درخواست می‌کنی؛ ارسال از مرکز اعلان و طبق تأیید اپراتور است، نه رزرو کتاب.");
+          button(row,"تأیید؛ پس از موجودشدن خبرم کن",async()=>{
+            const current=revision;
+            const result=await window.JaheshPublic.call("/reservations/library/watches",{record_id:book.record_id,channel:channel.value,confirmed:true});
+            if(current===revision&&active())text(row,"p",result.repeated?"درخواست قبلاً ثبت شده است.":result.notice);
+          });
+        }
+      }
       button(parent,"جست‌وجوی زنده سامانه کتابخانه مرکزی اصفهان و همه شعب",()=>document.dispatchEvent(new CustomEvent("jahesh-library-open")));
     }
     if(data.kind==="hours"){
